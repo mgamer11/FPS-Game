@@ -3,46 +3,28 @@
 A blocky, Poxel.io-style multiplayer first-person shooter that runs in the web browser.
 Free-for-all deathmatch: create a room, share the 5-character code, and the player with the most kills when the timer runs out wins.
 
-## How to play (the quick version)
+**Nothing to install.** The person who creates a room hosts it right in their browser, and everyone else connects to them directly.
 
-1. Install **Node.js** (the "LTS" version) from <https://nodejs.org>. You only need to do this once.
-2. Start the game server:
-   - **Windows:** double-click `start-windows.bat`
-   - **Mac:** double-click `start-mac.command` (if macOS blocks it: right-click → Open → Open)
-   - **Any computer (terminal):** run `npm install` once, then `npm start`
-3. Your browser opens at <http://localhost:3000>. Pick a name and color, click **JOIN OR CREATE**, then **Create Room**.
-4. Give your friends the **room code** shown at the top of the screen (also in the ESC menu).
+## Play
 
-Keep the black server window open while you play. Close it (or press Ctrl+C) to stop the server.
+- **Website:** <https://mgamer11.github.io/FPS-Game/> (after GitHub Pages is turned on, see below)
+- **Or offline file:** download [`BlockBlitz.html`](BlockBlitz.html) and double-click it. Send the same file to friends.
 
-## If the game doesn't open
+Then:
 
-Look at the Terminal / black window that opened when you started the server:
+1. Pick a name and color, click **JOIN OR CREATE → Create Room**.
+2. Press **Esc** in the game to see the room code and an **invite link**. Send it to your friends.
+3. Friends click the link (or open the game, choose **Join Room** and type the code).
 
-- **"Node.js is not installed yet"**: install the LTS version from <https://nodejs.org>, then start again.
-- **"Port 3000 is already in use, trying 3001..."**: that's fine. Use the address it prints (for example `http://localhost:3001`).
-- **The window closed or says "The server has stopped"**: the game only works while that window stays open. Start it again.
-- **The page still won't load**: type `http://127.0.0.1:3000` (with the port number the window shows) into Chrome's address bar.
+Online play needs an internet connection. If the person who created the room leaves or closes their tab, the game ends for everyone, so the host should stay until the match is over.
 
-## Playing with friends
+### Turning on the website (one time)
 
-**Same Wi-Fi / LAN:** when the server starts it prints a line like
+1. On GitHub, open this repository → **Settings** → **Pages** (left sidebar).
+2. Under **Build and deployment → Branch**, choose **`gh-pages`** and **`/ (root)`**, then click **Save**.
+3. Wait 1–2 minutes. The site is live at <https://mgamer11.github.io/FPS-Game/>.
 
-```
-Same Wi-Fi/LAN:    http://192.168.1.23:3000
-```
-
-Friends on the same network open that address in their browser, click **JOIN OR CREATE → Join Room**, and type the code.
-On Windows, the first time you start the server a firewall popup appears. Click **Allow access** or friends can't connect.
-
-**Over the internet (friends somewhere else):** put the game on a free host such as [Render](https://render.com):
-
-1. Make a free Render account and sign in with GitHub.
-2. Click **New → Web Service** and pick this repository.
-3. Set **Build Command** to `npm install` and **Start Command** to `npm start`, choose the free plan, and click **Create**.
-4. After a few minutes Render gives you a link like `https://block-blitz.onrender.com`. Everyone opens that link, and one person creates a room.
-
-(Free Render servers go to sleep when nobody is playing. The first visit afterwards takes about a minute to wake it up.)
+Whenever the code changes, a GitHub Action rebuilds the site automatically.
 
 ## Controls
 
@@ -58,21 +40,20 @@ On Windows, the first time you start the server a firewall popup appears. Click 
 | 1 / 2, Q or mouse wheel | Switch between your picked-up gun and your pistol |
 | Tab | Scoreboard |
 | T or Enter | Chat |
-| Esc | Pause / settings (sensitivity, FOV, volume, and more) |
+| Esc | Pause / settings / room code and invite link |
 
 ## Features
 
 - **10 maps:** Meadow Village, Dune Outpost, Frostbite, Downtown, Timber Woods, Red Canyon, Lost Temple, Harbor, Magma Core, Army Base. Choose **Random** when creating a room to get a new random map every match.
 - **8 weapons:** Pistol (you always have it), plus Assault Rifle, SMG, Shotgun, Sniper, LMG, Revolver and Rocket Launcher lying on the ground. Walk over a gun to pick it up. Picked-up guns come back after 18 seconds.
+- Everyone has 100 HP. Only the Sniper, a headshot, or a Shotgun blast at point-blank range (3 blocks or closer) can take out a full-health player in one shot.
 - Every building can be entered, with stairs to upper floors and flat roofs.
-- Everyone has 100 HP. Only the Sniper, a headshot, or a Shotgun blast at point-blank range (3 blocks or closer) can take out a full-health player in one shot. The server enforces this too.
 - Headshots, health regeneration after 5 seconds out of combat, kill feed, scoreboard, chat, rocket jumping, and lava that hurts (Magma Core).
-- Room settings: match time (3–15 min), map, and max players (2–16). Room codes are random and never clash with another open room.
+- Room settings: match time (3–15 min), map, and max players (2–16). Room codes are random and can never clash with another open room.
 
 ## For tinkerers
 
-- `server.js`: the game server (rooms, codes, damage, pickups, match timer).
+- `public/`: the game source. `public/js/roomhost.js` is the room "server" that runs in the host's browser; `public/js/net.js` connects browsers with WebRTC (PeerJS).
 - `public/js/shared/maps.js`: the map generator. Each map is built from a fixed seed, so everyone sees the same world.
-- `public/js/shared/weapons.js`: weapon stats (damage, fire rate, ammo...).
-- `public/js/game.js`: the in-game logic, HUD and effects.
-- Use a different port with `PORT=8080 npm start`.
+- `public/js/shared/weapons.js`: weapon stats.
+- `npm install && npm run build` bundles everything into `dist/index.html` and `BlockBlitz.html`. `npm start` builds and serves it at http://localhost:3000.

@@ -4,7 +4,8 @@
   "description": "Browser multiplayer blocky FPS",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node build.mjs && node server.js",
+    "build": "node build.mjs"
   },
   "repository": {
     "type": "git",
@@ -16,12 +17,14 @@
   },
   "homepage": "https://github.com/mgamer11/FPS-Game#readme",
   "dependencies": {
-    "express": "^4.22.3",
-    "three": "^0.160.0",
-    "ws": "^8.22.0"
+    "peerjs": "^1.5.5",
+    "three": "0.160.0"
   },
   "type": "module",
   "engines": {
     "node": ">=18"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
   }
 }

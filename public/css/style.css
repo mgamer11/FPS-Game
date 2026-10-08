@@ -134,3 +134,9 @@ table.sb tr.me td { color: #ffd23f; }
   .side-panel { order: 2; }
   .center-col { order: 1; }
 }
+
+.invite { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+.invite input { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 8px; border: 2px solid #b6dcf5; font-weight: 700; color: #2b5f86; font-size: 13px; }
+.invite .btn.small { margin-top: 0; white-space: nowrap; }
+.host-note { margin: 10px 0 0; font-size: 13px; color: #b45309; }
+.btn:disabled { opacity: .6; cursor: wait; }
