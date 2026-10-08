@@ -16,12 +16,13 @@ export const WEAPONS = {
     sound: { freq: 1700, dur: 0.1, vol: 0.4, low: 0.25 }, rarity: 3,
   },
   shotgun: {
-    name: 'Shotgun', dmg: 11, head: 1.3, rate: 0.85, auto: false, mag: 6, reserve: 30,
+    name: 'Shotgun', dmg: 12, head: 1.3, rate: 0.85, auto: false, mag: 6, reserve: 30,
     reload: 2.2, spread: 0.075, zoomSpread: 0.8, pellets: 9, range: 60, zoomFov: 60, recoil: 0.06,
-    falloff: [8, 30], sound: { freq: 500, dur: 0.3, vol: 0.7, low: 0.9 }, rarity: 2,
+    // full damage (can one-shot) only within 3 blocks
+    falloff: [3, 24], sound: { freq: 500, dur: 0.3, vol: 0.7, low: 0.9 }, rarity: 2,
   },
   sniper: {
-    name: 'Sniper', dmg: 95, head: 2, rate: 1.3, auto: false, mag: 5, reserve: 25,
+    name: 'Sniper', dmg: 100, head: 2, rate: 1.3, auto: false, mag: 5, reserve: 25,
     reload: 2.4, spread: 0.06, zoomSpread: 0.0, pellets: 1, range: 400, zoomFov: 18, recoil: 0.07,
     scope: true, sound: { freq: 700, dur: 0.45, vol: 0.8, low: 1 }, rarity: 1,
   },
@@ -36,7 +37,7 @@ export const WEAPONS = {
     sound: { freq: 600, dur: 0.3, vol: 0.7, low: 0.8 }, rarity: 2,
   },
   rocket: {
-    name: 'Rocket Launcher', dmg: 120, rate: 1.1, auto: false, mag: 1, reserve: 6,
+    name: 'Rocket Launcher', dmg: 90, rate: 1.1, auto: false, mag: 1, reserve: 6,
     reload: 1.8, spread: 0.004, zoomSpread: 1, pellets: 1, range: 300, zoomFov: 55, recoil: 0.08,
     projectile: 38, splash: 4.2, sound: { freq: 300, dur: 0.5, vol: 0.7, low: 1 }, rarity: 0.6,
   },
@@ -44,11 +45,20 @@ export const WEAPONS = {
 
 export const PICKUP_WEAPONS = ['ar', 'smg', 'shotgun', 'sniper', 'lmg', 'revolver', 'rocket'];
 
-// Highest damage a single hit message may report (used by the server).
-export function maxHitDamage(id) {
+export const MAX_HP = 100;
+export const POINT_BLANK = 3;
+
+// Highest damage a single hit message may report (checked by the server).
+// Rule: nothing kills a full-health player in one shot unless it's the sniper,
+// a headshot, or a shotgun at point-blank range.
+export function maxHitDamage(id, head = false, dist = 0) {
   if (id === 'lava') return 15;
   const w = WEAPONS[id];
   if (!w) return 0;
   if (w.projectile) return w.dmg + 1;
-  return w.dmg * (w.head || 1) * w.pellets + 1;
+  if (head || id === 'sniper') return w.dmg * (w.head || 1) * w.pellets + 1;
+  const body = w.dmg * w.pellets;
+  // allow a little extra range for network lag before capping the shotgun
+  if (id === 'shotgun' && dist <= POINT_BLANK + 2.5) return body + 1;
+  return Math.min(body + 1, MAX_HP - 1);
 }

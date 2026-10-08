@@ -214,7 +214,8 @@ function handle(ws, msg) {
       if (!target || !Number.isFinite(dmg) || dmg <= 0) return;
       if (msg.w !== 'lava' && p.dead) return;
       if (msg.w === 'lava' && target !== p) return;
-      if (dmg > maxHitDamage(msg.w)) return;
+      const dist = Math.hypot(p.pos[0] - target.pos[0], p.pos[1] - target.pos[1], p.pos[2] - target.pos[2]);
+      if (dmg > maxHitDamage(msg.w, !!msg.head, dist)) return;
       applyDamage(room, p, target, dmg, msg.w, msg.head);
       break;
     }

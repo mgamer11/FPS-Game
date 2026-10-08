@@ -56,6 +56,7 @@ On Windows, the first time you start the server a firewall popup appears. Click 
 - **10 maps:** Meadow Village, Dune Outpost, Frostbite, Downtown, Timber Woods, Red Canyon, Lost Temple, Harbor, Magma Core, Army Base. Choose **Random** when creating a room to get a new random map every match.
 - **8 weapons:** Pistol (you always have it), plus Assault Rifle, SMG, Shotgun, Sniper, LMG, Revolver and Rocket Launcher lying on the ground. Walk over a gun to pick it up. Picked-up guns come back after 18 seconds.
 - Every building can be entered, with stairs to upper floors and flat roofs.
+- Everyone has 100 HP. Only the Sniper, a headshot, or a Shotgun blast at point-blank range (3 blocks or closer) can take out a full-health player in one shot. The server enforces this too.
 - Headshots, health regeneration after 5 seconds out of combat, kill feed, scoreboard, chat, rocket jumping, and lava that hurts (Magma Core).
 - Room settings: match time (3–15 min), map, and max players (2–16). Room codes are random and never clash with another open room.
 

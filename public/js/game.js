@@ -662,7 +662,8 @@ export class Game {
         let dmg = w.dmg * (res.head ? w.head : 1);
         if (w.falloff) {
           const [near, far] = w.falloff;
-          dmg *= THREE.MathUtils.clamp(1 - (res.t - near) / (far - near), 0.3, 1);
+          // full damage only at point-blank, then a sharp drop so it can't one-shot further away
+          dmg *= res.t <= near ? 1 : THREE.MathUtils.clamp(0.9 - ((res.t - near) / (far - near)) * 0.6, 0.3, 0.9);
         }
         const h = hits.get(res.player.id) || { dmg: 0, head: false, p: res.player };
         h.dmg += dmg;
@@ -769,7 +770,7 @@ export class Game {
         const blocked = this.world.raycast(pos.x, pos.y, pos.z, dir.x, dir.y, dir.z, len);
         if (blocked && blocked.t < len - 0.5) continue;
       }
-      let dmg = Math.max(12, w.dmg * (1 - dist / w.splash));
+      let dmg = Math.max(10, w.dmg * (1 - dist / w.splash));
       if (t.self) {
         dmg *= 0.35;
         const push = len > 0.01 ? dir.clone().normalize() : new THREE.Vector3(0, 1, 0);
