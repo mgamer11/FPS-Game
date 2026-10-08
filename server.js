@@ -4,6 +4,7 @@ import http from 'http';
 import os from 'os';
 import path from 'path';
 import crypto from 'crypto';
+import { exec } from 'child_process';
 import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
 import { MAPS, generateMap, mapHash } from './public/js/shared/maps.js';
@@ -305,16 +306,35 @@ setInterval(() => {
   }
 }, 15000);
 
-server.listen(PORT, () => {
+// Start listening. If the port is busy (another program uses it), try the next ones.
+let port = PORT;
+wss.on('error', () => {}); // listen errors are handled below
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE' && port < PORT + 20) {
+    console.log(`   Port ${port} is already in use, trying ${port + 1}...`);
+    port++;
+    setTimeout(() => server.listen(port), 100);
+  } else {
+    console.error('\n   Could not start the server:', err.message);
+    process.exit(1);
+  }
+});
+server.on('listening', () => {
+  const url = `http://localhost:${port}`;
   console.log('\n  ===============================================');
   console.log('   BLOCK BLITZ server is running!');
   console.log('  ===============================================');
-  console.log(`   On this computer:  http://localhost:${PORT}`);
+  console.log(`   On this computer:  ${url}`);
   for (const list of Object.values(os.networkInterfaces())) {
     for (const ni of list || []) {
-      if (ni.family === 'IPv4' && !ni.internal) console.log(`   Same Wi-Fi/LAN:    http://${ni.address}:${PORT}`);
+      if (ni.family === 'IPv4' && !ni.internal) console.log(`   Same Wi-Fi/LAN:    http://${ni.address}:${port}`);
     }
   }
   console.log('\n   Share the LAN address with friends on your network.');
-  console.log('   Press Ctrl+C to stop the server.\n');
+  console.log('   KEEP THIS WINDOW OPEN while playing. Press Ctrl+C to stop the server.\n');
+  if (process.env.OPEN_BROWSER) {
+    const cmd = process.platform === 'darwin' ? `open "${url}"` : process.platform === 'win32' ? `start "" "${url}"` : `xdg-open "${url}"`;
+    exec(cmd, () => {});
+  }
 });
+server.listen(port);

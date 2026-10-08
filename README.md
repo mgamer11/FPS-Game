@@ -15,6 +15,15 @@ Free-for-all deathmatch: create a room, share the 5-character code, and the play
 
 Keep the black server window open while you play. Close it (or press Ctrl+C) to stop the server.
 
+## If the game doesn't open
+
+Look at the Terminal / black window that opened when you started the server:
+
+- **"Node.js is not installed yet"**: install the LTS version from <https://nodejs.org>, then start again.
+- **"Port 3000 is already in use, trying 3001..."**: that's fine. Use the address it prints (for example `http://localhost:3001`).
+- **The window closed or says "The server has stopped"**: the game only works while that window stays open. Start it again.
+- **The page still won't load**: type `http://127.0.0.1:3000` (with the port number the window shows) into Chrome's address bar.
+
 ## Playing with friends
 
 **Same Wi-Fi / LAN:** when the server starts it prints a line like
