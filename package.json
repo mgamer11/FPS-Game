@@ -1,0 +1,27 @@
+{
+  "name": "block-blitz",
+  "version": "1.0.0",
+  "description": "Browser multiplayer blocky FPS",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mgamer11/FPS-Game.git"
+  },
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mgamer11/FPS-Game/issues"
+  },
+  "homepage": "https://github.com/mgamer11/FPS-Game#readme",
+  "dependencies": {
+    "express": "^4.22.3",
+    "three": "^0.160.0",
+    "ws": "^8.22.0"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Block Blitz</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script type="importmap">
+    { "imports": { "three": "/lib/three.module.js" } }
+  </script>
+</head>
+<body>
+  <!-- ============ HOME SCREEN ============ -->
+  <div id="home" class="screen">
+    <h1 class="logo">BLOCK<span>BLITZ</span></h1>
+
+    <div class="home-grid">
+      <div class="panel side-panel">
+        <h3>Your Player</h3>
+        <label class="lbl">Name</label>
+        <input id="nameInput" maxlength="16" placeholder="Player" />
+        <label class="lbl">Color</label>
+        <div id="colorSwatches" class="swatches"></div>
+        <button id="homeSettingsBtn" class="btn small ghost">⚙ Settings</button>
+      </div>
+
+      <div class="center-col">
+        <div id="modelHolder"><canvas id="modelCanvas"></canvas></div>
+        <button id="joinCreateBtn" class="btn big">JOIN OR CREATE</button>
+      </div>
+
+      <div class="panel side-panel">
+        <h3>Controls</h3>
+        <ul class="controls">
+          <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move</li>
+          <li><kbd>SHIFT</kbd> Sprint (hold)</li>
+          <li><kbd>SPACE</kbd> Jump</li>
+          <li><kbd>X</kbd> Dash</li>
+          <li><kbd>LMB</kbd> Shoot</li>
+          <li><kbd>RMB</kbd> Zoom / Aim</li>
+          <li><kbd>R</kbd> Reload</li>
+          <li><kbd>1</kbd><kbd>2</kbd> / Wheel Switch gun</li>
+          <li><kbd>TAB</kbd> Scoreboard</li>
+          <li><kbd>T</kbd> Chat</li>
+          <li><kbd>ESC</kbd> Settings</li>
+        </ul>
+        <p class="hint">Walk over guns on the ground to pick them up!</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ JOIN / CREATE POPUP ============ -->
+  <div id="roomModal" class="modal hidden">
+    <div class="modal-box">
+      <button class="close-x" data-close="roomModal">✕</button>
+      <div class="tabs">
+        <button class="tab active" data-tab="createTab">Create Room</button>
+        <button class="tab" data-tab="joinTab">Join Room</button>
+      </div>
+      <div id="createTab" class="tab-body">
+        <label class="lbl">Map</label>
+        <select id="mapSelect"></select>
+        <p id="mapDesc" class="desc"></p>
+        <label class="lbl">Match Time</label>
+        <div class="seg" id="timeSeg"></div>
+        <label class="lbl">Max Players</label>
+        <div class="seg" id="playersSeg"></div>
+        <button id="createBtn" class="btn">CREATE</button>
+      </div>
+      <div id="joinTab" class="tab-body hidden">
+        <label class="lbl">Room Code</label>
+        <input id="codeInput" class="code-input" maxlength="5" placeholder="ABCDE" autocomplete="off" spellcheck="false" />
+        <p class="desc">Ask the person who created the room for their 5-character code.</p>
+        <button id="joinBtn" class="btn">JOIN</button>
+      </div>
+      <p id="roomError" class="error"></p>
+    </div>
+  </div>
+
+  <!-- ============ SETTINGS (used in-game on ESC and on the home screen) ============ -->
+  <div id="settingsModal" class="modal hidden">
+    <div class="modal-box wide">
+      <h2 id="settingsTitle">Settings</h2>
+      <div id="roomInfo" class="room-info hidden"></div>
+      <div class="settings-grid">
+        <label>Mouse Sensitivity <span id="sensVal"></span></label>
+        <input type="range" id="sens" min="0.1" max="5" step="0.05" />
+        <label>Zoom Sensitivity <span id="zoomSensVal"></span></label>
+        <input type="range" id="zoomSens" min="0.2" max="1.5" step="0.05" />
+        <label>Field of View <span id="fovVal"></span></label>
+        <input type="range" id="fov" min="60" max="110" step="1" />
+        <label>Volume <span id="volVal"></span></label>
+        <input type="range" id="vol" min="0" max="1" step="0.05" />
+        <label>Render Quality <span id="qualVal"></span></label>
+        <input type="range" id="qual" min="0.5" max="1" step="0.05" />
+        <label>Crosshair Color</label>
+        <input type="color" id="xhairColor" />
+        <label>Invert Mouse Y</label>
+        <input type="checkbox" id="invertY" />
+        <label>View Bobbing</label>
+        <input type="checkbox" id="bob" />
+        <label>Show FPS</label>
+        <input type="checkbox" id="showFps" />
+      </div>
+      <div class="row-btns">
+        <button id="resumeBtn" class="btn">RESUME</button>
+        <button id="closeSettingsBtn" class="btn hidden">DONE</button>
+        <button id="leaveBtn" class="btn danger">LEAVE MATCH</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ GAME ============ -->
+  <div id="game" class="screen hidden">
+    <canvas id="gameCanvas"></canvas>
+    <div id="hud">
+      <div id="scopeOverlay" class="hidden"></div>
+      <div id="damageVignette"></div>
+      <div id="crosshair"><i></i><i></i><i></i><i></i></div>
+      <div id="hitmarker"></div>
+      <div id="dmgArrow"></div>
+      <div id="topBar">
+        <div id="timer">5:00</div>
+        <div id="roomCode">CODE: -----</div>
+        <div id="mapName"></div>
+      </div>
+      <div id="leader"></div>
+      <div id="killfeed"></div>
+      <div id="fps" class="hidden"></div>
+      <div id="chatLog"></div>
+      <input id="chatInput" class="hidden" maxlength="120" placeholder="Say something... (Enter to send)" />
+      <div id="bottomLeft">
+        <div class="hp-wrap"><div id="hpFill"></div><span id="hpText">100</span></div>
+        <div id="dashBar"><div id="dashFill"></div><span>DASH [X]</span></div>
+      </div>
+      <div id="bottomRight">
+        <div id="slots"></div>
+        <div id="weaponName">Pistol</div>
+        <div id="ammo"><span id="ammoMag">12</span> / <span id="ammoRes">∞</span></div>
+        <div id="reloadHint" class="hidden">Press R to reload</div>
+      </div>
+      <div id="notice"></div>
+      <div id="clickToPlay" class="hidden">Click to play</div>
+      <div id="deathScreen" class="hidden">
+        <div class="big-text">ELIMINATED</div>
+        <div id="killedBy"></div>
+        <div id="respawnTimer"></div>
+      </div>
+      <div id="scoreboard" class="hidden"></div>
+      <div id="endScreen" class="hidden"></div>
+      <div id="loading" class="hidden">Building map...</div>
+    </div>
+  </div>
+
+  <div id="toast" class="hidden"></div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
