@@ -145,35 +145,28 @@ codeInput.addEventListener('input', () => {
 codeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') $('joinBtn').click(); });
 
 let busy = false;
-async function request(msg) {
+async function request(fn, label) {
   if (busy) return;
   busy = true;
-  $('roomError').textContent = 'Connecting...';
+  $('roomError').textContent = label;
+  document.querySelectorAll('#createBtn, #joinBtn').forEach((b) => (b.disabled = true));
   try {
-    await net.connect();
+    const data = await fn();
+    $('roomError').textContent = '';
+    startGame(data);
   } catch (e) {
-    $('roomError').textContent = 'Could not connect to the game server. Is it running?';
+    $('roomError').textContent = e.message;
+  } finally {
     busy = false;
-    return;
+    document.querySelectorAll('#createBtn, #joinBtn').forEach((b) => (b.disabled = false));
   }
-  const off = net.on((m) => {
-    if (m.t === 'error') {
-      $('roomError').textContent = m.msg;
-      off();
-      busy = false;
-    } else if (m.t === 'joined') {
-      off();
-      busy = false;
-      startGame(m);
-    }
-  });
-  net.send(msg);
 }
 
 $('createBtn').onclick = () => {
   unlockAudio();
   const map = mapSelect.value === 'random' ? 'random' : Number(mapSelect.value);
-  request({ t: 'create', name: playerName(), color: profile.color, settings: { map, time: getTime(), maxPlayers: getPlayers() } });
+  const settings = { map, time: getTime(), maxPlayers: getPlayers() };
+  request(() => net.create(settings, { name: playerName(), color: profile.color }), 'Creating room...');
 };
 $('joinBtn').onclick = () => {
   unlockAudio();
@@ -182,7 +175,7 @@ $('joinBtn').onclick = () => {
     $('roomError').textContent = 'Room codes are exactly 5 letters/numbers.';
     return;
   }
-  request({ t: 'join', code, name: playerName(), color: profile.color });
+  request(() => net.join(code, { name: playerName(), color: profile.color }), 'Connecting to room ' + code + '...');
 };
 
 // ---------------------------------------------------------------- game start / exit
@@ -195,6 +188,7 @@ function startGame(data) {
     net, data, me: { name: data.players.find((p) => p.id === data.you)?.name || 'Player', color: profile.color, id: data.you },
     onExit: (reason) => {
       game = null;
+      net.close();
       $('settingsModal').classList.add('hidden');
       $('game').classList.add('hidden');
       $('home').classList.remove('hidden');

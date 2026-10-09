@@ -345,7 +345,14 @@ export class Game {
     this.menuOpen = true;
     $('settingsTitle').textContent = 'Paused';
     $('roomInfo').classList.remove('hidden');
-    $('roomInfo').innerHTML = `Room code: <b>${esc(this.code)}</b><br>Map: ${esc(MAPS[this.map.index].name)} · ${this.roomSettings.time} min · up to ${this.roomSettings.maxPlayers} players`;
+    const invite = location.protocol.startsWith('http') ? `${location.origin}${location.pathname}?join=${this.code}` : '';
+    $('roomInfo').innerHTML = `Room code: <b>${esc(this.code)}</b><br>Map: ${esc(MAPS[this.map.index].name)} · ${this.roomSettings.time} min · up to ${this.roomSettings.maxPlayers} players` +
+      (invite ? `<div class="invite"><input readonly value="${esc(invite)}"><button id="copyInvite" class="btn small ghost">Copy invite link</button></div>` : '') +
+      (this.net.isHost ? '<p class="host-note">You are hosting this room. Keep this tab open — if you leave, the game ends for everyone.</p>' : '');
+    const copy = $('copyInvite');
+    if (copy) copy.onclick = () => {
+      navigator.clipboard?.writeText(invite).then(() => (copy.textContent = 'Copied!'), () => {});
+    };
     $('resumeBtn').classList.remove('hidden');
     $('leaveBtn').classList.remove('hidden');
     $('closeSettingsBtn').classList.add('hidden');
@@ -463,7 +470,7 @@ export class Game {
         this.startMatch(m);
         break;
       case 'disconnected':
-        this.exit('Lost connection to the server.');
+        this.exit(m.reason || 'Lost connection to the host.');
         break;
     }
   }
