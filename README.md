@@ -1,6 +1,6 @@
 # Block Blitz
 
-A blocky, Poxel.io-style multiplayer first-person shooter that runs in the web browser.
+A blocky, multiplayer first-person shooter that runs in the web browser.
 Free-for-all deathmatch: create a room, share the 5-character code, and the player with the most kills when the timer runs out wins.
 
 **Nothing to install.** The person who creates a room hosts it right in their browser, and everyone else connects to them directly.
