@@ -36,6 +36,17 @@ export const WEAPONS = {
     reload: 2.0, spread: 0.006, zoomSpread: 0.4, pellets: 1, range: 220, zoomFov: 45, recoil: 0.05,
     sound: { freq: 600, dur: 0.3, vol: 0.7, low: 0.8 }, rarity: 2,
   },
+  dmr: {
+    name: 'Marksman Rifle', dmg: 38, head: 1.9, rate: 0.32, auto: false, mag: 10, reserve: 40,
+    reload: 2.1, spread: 0.02, zoomSpread: 0.15, pellets: 1, range: 300, zoomFov: 30, recoil: 0.035,
+    sound: { freq: 800, dur: 0.25, vol: 0.65, low: 0.7 }, rarity: 2,
+  },
+  burst: {
+    // one click fires a 3-round burst
+    name: 'Burst Rifle', dmg: 22, head: 1.6, rate: 0.38, auto: false, burst: 3, burstGap: 0.07, mag: 30, reserve: 150,
+    reload: 2.0, spread: 0.012, zoomSpread: 0.4, pellets: 1, range: 240, zoomFov: 46, recoil: 0.012,
+    sound: { freq: 1100, dur: 0.13, vol: 0.45, low: 0.4 }, rarity: 3,
+  },
   rocket: {
     name: 'Rocket Launcher', dmg: 90, rate: 1.1, auto: false, mag: 1, reserve: 6,
     reload: 1.8, spread: 0.004, zoomSpread: 1, pellets: 1, range: 300, zoomFov: 55, recoil: 0.08,
@@ -43,7 +54,8 @@ export const WEAPONS = {
   },
 };
 
-export const PICKUP_WEAPONS = ['ar', 'smg', 'shotgun', 'sniper', 'lmg', 'revolver', 'rocket'];
+export const PICKUP_WEAPONS = ['ar', 'smg', 'shotgun', 'sniper', 'lmg', 'revolver', 'rocket', 'dmr', 'burst'];
+export const HOTBAR_SIZE = 10;
 
 export const MAX_HP = 100;
 export const POINT_BLANK = 3;

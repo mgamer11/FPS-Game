@@ -37,7 +37,7 @@ Whenever the code changes, a GitHub Action rebuilds the site automatically.
 | Left mouse | Shoot |
 | Right mouse | Zoom / aim (sniper uses a scope) |
 | R | Reload |
-| 1 / 2, Q or mouse wheel | Switch between your picked-up gun and your pistol |
+| 1–9, 0 or mouse wheel | Pick a gun from your 10-slot hotbar (Q = previous gun) |
 | Tab | Scoreboard |
 | T or Enter | Chat |
 | Esc | Pause / settings / room code and invite link |
@@ -45,7 +45,7 @@ Whenever the code changes, a GitHub Action rebuilds the site automatically.
 ## Features
 
 - **10 maps:** Meadow Village, Dune Outpost, Frostbite, Downtown, Timber Woods, Red Canyon, Lost Temple, Harbor, Magma Core, Army Base. Choose **Random** when creating a room to get a new random map every match.
-- **8 weapons:** Pistol (you always have it), plus Assault Rifle, SMG, Shotgun, Sniper, LMG, Revolver and Rocket Launcher lying on the ground. Walk over a gun to pick it up. Picked-up guns come back after 18 seconds.
+- **10 weapons:** Pistol (you always have it), plus Assault Rifle, SMG, Shotgun, Sniper, LMG, Revolver, Marksman Rifle, Burst Rifle and Rocket Launcher lying on the ground. Walk over a gun to add it to your 10-slot hotbar (walking over one you already have refills its ammo). Picked-up guns come back after 18 seconds.
 - Everyone has 100 HP. Only the Sniper, a headshot, or a Shotgun blast at point-blank range (3 blocks or closer) can take out a full-health player in one shot.
 - Every building can be entered, with stairs to upper floors and flat roofs.
 - Headshots, health regeneration after 5 seconds out of combat, kill feed, scoreboard, chat, rocket jumping, and lava that hurts (Magma Core).

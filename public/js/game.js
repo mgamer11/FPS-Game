@@ -1,10 +1,10 @@
 // The in-match game: world, local player, other players, weapons, effects and HUD.
 import * as THREE from 'three';
 import { generateMap, mapHash, MAPS, B } from './shared/maps.js';
-import { WEAPONS } from './shared/weapons.js';
+import { WEAPONS, HOTBAR_SIZE } from './shared/weapons.js';
 import { rayBox, playerBoxes } from './shared/voxel.js';
 import { buildWorldMeshes } from './worldmesh.js';
-import { buildCharacter, buildGun, setCharacterWeapon, poseCharacter, makeNameTag } from './models.js';
+import { buildCharacter, buildGun, setCharacterWeapon, poseCharacter, makeNameTag, gunIcon } from './models.js';
 import { LocalPlayer, PLAYER } from './player.js';
 import { settings, onSettingsChange } from './settings.js';
 import { playGun, sfx, setVolume } from './audio.js';
@@ -148,8 +148,7 @@ export class Game {
     this.hp = 100;
     this.deathAt = -1e9;
     this.killedBy = null;
-    this.slots = [null, { id: 'pistol', mag: WEAPONS.pistol.mag, reserve: Infinity }];
-    this.slot = 1;
+    this.resetLoadout();
     this.reloading = false;
     this.nextFire = 0;
     $('deathScreen').classList.add('hidden');
@@ -210,7 +209,7 @@ export class Game {
     spin.add(gun);
     spin.position.y = 0.7;
     g.add(spin);
-    const col = { rocket: 0xff5533, sniper: 0xb36bff, lmg: 0xb36bff, shotgun: 0x4fc3f7, revolver: 0x4fc3f7 }[pk.type] || 0x7cff7c;
+    const col = { rocket: 0xff5533, sniper: 0xb36bff, lmg: 0xb36bff, dmr: 0xb36bff, shotgun: 0x4fc3f7, revolver: 0x4fc3f7, burst: 0x4fc3f7 }[pk.type] || 0x7cff7c;
     const base = new THREE.Mesh(cubeGeo, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.55 }));
     base.scale.set(0.9, 0.06, 0.9);
     base.position.y = 0.03;
@@ -256,9 +255,10 @@ export class Game {
         if (['Space', 'Tab', 'KeyT'].includes(e.code)) e.preventDefault();
         this.keys.add(e.code);
         if (e.code === 'KeyR') this.startReload();
-        if (e.code === 'Digit1') this.switchSlot(0);
-        if (e.code === 'Digit2') this.switchSlot(1);
-        if (e.code === 'KeyQ') this.switchSlot(this.slot === 0 ? 1 : 0);
+        // hotbar: keys 1-9 are slots 1-9, key 0 is slot 10
+        const digit = /^Digit(\d)$/.exec(e.code);
+        if (digit) this.switchSlot((Number(digit[1]) + 9) % 10);
+        if (e.code === 'KeyQ') this.switchSlot(this.lastSlot);
         if (e.code === 'KeyT' || e.code === 'Enter') this.openChat();
       },
       keyup: (e) => {
@@ -283,8 +283,8 @@ export class Game {
         this.player.pitch = Math.max(-1.55, Math.min(1.55, this.player.pitch));
       },
       wheel: (e) => {
-        if (!this.locked) return;
-        this.switchSlot(this.slot === 0 ? 1 : 0);
+        if (!this.locked || e.deltaY === 0) return;
+        this.cycleSlot(e.deltaY > 0 ? 1 : -1);
       },
       contextmenu: (e) => e.preventDefault(),
       click: () => {
@@ -547,8 +547,7 @@ export class Game {
       this.deathAt = performance.now();
       this.killedBy = m.k !== this.myId ? m.k : null;
       this.hp = 0;
-      this.slots = [null, { id: 'pistol', mag: WEAPONS.pistol.mag, reserve: Infinity }];
-      this.slot = 1;
+      this.resetLoadout();
       this.reloading = false;
       sfx.death();
       this.burst(this.player.pos.clone().add(new THREE.Vector3(0, 1, 0)), new THREE.Color(this.me.color).getHex(), 24);
@@ -573,23 +572,45 @@ export class Game {
   get weapon() { return this.slots[this.slot]; }
   get zoomed() { return this.zoomHeld && this.alive && !this.reloading; }
 
+  resetLoadout() {
+    this.slots = new Array(HOTBAR_SIZE).fill(null);
+    this.slots[0] = { id: 'pistol', mag: WEAPONS.pistol.mag, reserve: Infinity };
+    this.slot = 0;
+    this.lastSlot = 0;
+    this.burstLeft = 0;
+  }
+
+  // Walking over a gun: refill it if you already carry one, otherwise put it in the first free hotbar slot.
   equip(type) {
     const w = WEAPONS[type];
-    this.slots[0] = { id: type, mag: w.mag, reserve: w.reserve };
-    this.reloading = false;
-    this.slot = 0;
-    this.vm.swap = 1;
-    this.nextFire = performance.now() + 250;
+    let i = this.slots.findIndex((s) => s && s.id === type);
+    const refill = i >= 0;
+    if (!refill) i = this.slots.findIndex((s) => !s);
+    if (i < 0) i = this.slot === 0 ? 1 : this.slot; // hotbar full: replace the gun in your hands
+    this.slots[i] = { id: type, mag: w.mag, reserve: w.reserve };
+    if (i !== this.slot) this.switchSlot(i);
+    else { this.reloading = false; this.vm.swap = 1; }
+    this.nextFire = Math.max(this.nextFire, performance.now() + 250);
     sfx.pickup();
-    this.notice(`Picked up ${w.name}`);
+    this.notice(refill ? `${w.name} ammo refilled` : `Picked up ${w.name} [${i === 9 ? 0 : i + 1}]`);
   }
 
   switchSlot(i) {
     if (i === this.slot || !this.slots[i]) return;
+    this.lastSlot = this.slot;
     this.slot = i;
     this.reloading = false;
+    this.burstLeft = 0;
     this.vm.swap = 1;
     this.nextFire = Math.max(this.nextFire, performance.now() + 300);
+  }
+
+  // mouse wheel: jump to the next / previous slot that has a gun
+  cycleSlot(dir) {
+    for (let k = 1; k < HOTBAR_SIZE; k++) {
+      const i = (this.slot + dir * k + HOTBAR_SIZE * 2) % HOTBAR_SIZE;
+      if (this.slots[i]) return this.switchSlot(i);
+    }
   }
 
   startReload() {
@@ -614,6 +635,13 @@ export class Game {
       this.reloading = false;
     }
     this.bloom = Math.max(0, this.bloom - dt * w.spread * 4);
+    // rest of a burst keeps firing on its own
+    if (this.burstLeft > 0) {
+      if (cur.mag <= 0 || this.reloading || this.state !== 'playing') this.burstLeft = 0;
+      else if (now >= this.nextFire) { this.burstLeft--; this.fire(now, cur, w); }
+      if (cur.mag === 0) this.startReload();
+      return;
+    }
     const wantFire = this.mouseDown && this.locked && (w.auto || !this.firedSinceDown);
     if (wantFire && now >= this.nextFire && !this.reloading && this.state === 'playing') {
       if (cur.mag <= 0) {
@@ -622,6 +650,7 @@ export class Game {
         this.firedSinceDown = true;
         this.startReload();
       } else {
+        if (w.burst) this.burstLeft = w.burst - 1;
         this.fire(now, cur, w);
         this.firedSinceDown = true;
         if (cur.mag === 0) this.startReload();
@@ -631,7 +660,7 @@ export class Game {
 
   fire(now, cur, w) {
     cur.mag--;
-    this.nextFire = now + w.rate * 1000;
+    this.nextFire = now + (this.burstLeft > 0 ? w.burstGap : w.rate) * 1000;
     const origin = this.camera.getWorldPosition(new THREE.Vector3());
     const fwd = this.camera.getWorldDirection(new THREE.Vector3());
     const right = tmpV2.set(1, 0, 0).applyQuaternion(this.camera.quaternion).clone();
@@ -882,6 +911,7 @@ export class Game {
     if (vm.id !== cur.id) {
       if (vm.gun) vm.group.remove(vm.gun);
       vm.gun = buildGun(cur.id);
+      vm.gun.scale.setScalar(0.85); // detailed models read better a little smaller in first person
       // a blocky arm holding the gun
       const sleeve = new THREE.Mesh(cubeGeo, new THREE.MeshLambertMaterial({ color: this.me.color }));
       sleeve.scale.set(0.11, 0.11, 0.42);
@@ -1088,7 +1118,12 @@ export class Game {
     this.set('ammoMag', String(cur.mag));
     this.set('ammoRes', cur.reserve === Infinity ? '∞' : String(cur.reserve));
     $('reloadHint').classList.toggle('hidden', !(cur.mag === 0 && !this.reloading && cur.reserve > 0));
-    const slotsHtml = this.slots.map((s, i) => (s ? `<div class="slot${i === this.slot ? ' active' : ''}">${i + 1} ${WEAPONS[s.id].name}</div>` : `<div class="slot">${i + 1} —</div>`)).join('');
+    const slotsHtml = this.slots.map((s, i) => {
+      const num = `<span class="num">${(i + 1) % 10}</span>`;
+      if (!s) return `<div class="slot empty">${num}</div>`;
+      const ammo = s.reserve === Infinity ? s.mag : `${s.mag}`;
+      return `<div class="slot${i === this.slot ? ' active' : ''}" title="${WEAPONS[s.id].name}">${num}<img src="${gunIcon(s.id)}" alt=""><span class="cnt">${ammo}</span></div>`;
+    }).join('');
     this.set('slots', slotsHtml, 'innerHTML');
 
     // crosshair spread
