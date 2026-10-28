@@ -30,20 +30,8 @@
 
       <div class="panel side-panel">
         <h3>Controls</h3>
-        <ul class="controls">
-          <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move</li>
-          <li><kbd>SHIFT</kbd> Sprint (hold)</li>
-          <li><kbd>SPACE</kbd> Jump</li>
-          <li><kbd>X</kbd> Dash</li>
-          <li><kbd>LMB</kbd> Shoot</li>
-          <li><kbd>RMB</kbd> Zoom / Aim</li>
-          <li><kbd>R</kbd> Reload</li>
-          <li><kbd>1</kbd>–<kbd>0</kbd> / Wheel Switch gun (10 slots)</li>
-          <li><kbd>TAB</kbd> Scoreboard</li>
-          <li><kbd>T</kbd> Chat</li>
-          <li><kbd>ESC</kbd> Settings</li>
-        </ul>
-        <p class="hint">Walk over guns on the ground to pick them up!</p>
+        <ul class="controls" id="controlsList"></ul>
+        <p class="hint">Walk over guns on the ground to pick them up! Change any key in ⚙ Settings → Keybinds.</p>
       </div>
     </div>
   </div>
@@ -81,7 +69,11 @@
     <div class="modal-box wide">
       <h2 id="settingsTitle">Settings</h2>
       <div id="roomInfo" class="room-info hidden"></div>
-      <div class="settings-grid">
+      <div class="tabs settings-tabs">
+        <button class="tab active" data-stab="generalPane">General</button>
+        <button class="tab" data-stab="keysPane">Keybinds</button>
+      </div>
+      <div id="generalPane" class="settings-grid">
         <label>Mouse Sensitivity <span id="sensVal"></span></label>
         <input type="range" id="sens" min="0.1" max="5" step="0.05" />
         <label>Zoom Sensitivity <span id="zoomSensVal"></span></label>
@@ -92,6 +84,10 @@
         <input type="range" id="vol" min="0" max="1" step="0.05" />
         <label>Render Quality <span id="qualVal"></span></label>
         <input type="range" id="qual" min="0.5" max="1" step="0.05" />
+        <label>HUD Size <span id="hudScaleVal"></span></label>
+        <input type="range" id="hudScale" min="0.6" max="1.4" step="0.05" />
+        <label>Fullscreen While Playing</label>
+        <input type="checkbox" id="fullscreen" />
         <label>Crosshair Color</label>
         <input type="color" id="xhairColor" />
         <label>Invert Mouse Y</label>
@@ -100,6 +96,11 @@
         <input type="checkbox" id="bob" />
         <label>Show FPS</label>
         <input type="checkbox" id="showFps" />
+      </div>
+      <div id="keysPane" class="hidden">
+        <p class="desc">Click a control, then press the key or mouse button you want to use.</p>
+        <div id="keybindList" class="kb-list"></div>
+        <div class="kb-footer"><span id="keybindMsg" class="desc"></span><button id="resetKeys" class="btn small ghost">Reset to default</button></div>
       </div>
       <div class="row-btns">
         <button id="resumeBtn" class="btn">RESUME</button>

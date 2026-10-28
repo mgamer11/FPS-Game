@@ -7,6 +7,7 @@ import { buildWorldMeshes } from './worldmesh.js';
 import { buildCharacter, buildGun, setCharacterWeapon, poseCharacter, makeNameTag, gunIcon } from './models.js';
 import { LocalPlayer, PLAYER } from './player.js';
 import { settings, onSettingsChange } from './settings.js';
+import { keyLabel } from './keybinds.js';
 import { playGun, sfx, setVolume } from './audio.js';
 import { blockColor } from './textures.js';
 
@@ -250,30 +251,21 @@ export class Game {
           else if (e.code === 'Escape') this.closeChat();
           return;
         }
-        if (e.code === 'Tab') { e.preventDefault(); $('scoreboard').classList.remove('hidden'); this.renderScoreboard(); }
+        const action = this.actionFor(e.code);
+        if (action === 'scoreboard') { e.preventDefault(); $('scoreboard').classList.remove('hidden'); this.renderScoreboard(); }
         if (!this.locked) return;
-        if (['Space', 'Tab', 'KeyT'].includes(e.code)) e.preventDefault();
-        this.keys.add(e.code);
-        if (e.code === 'KeyR') this.startReload();
-        // hotbar: keys 1-9 are slots 1-9, key 0 is slot 10
-        const digit = /^Digit(\d)$/.exec(e.code);
-        if (digit) this.switchSlot((Number(digit[1]) + 9) % 10);
-        if (e.code === 'KeyQ') this.switchSlot(this.lastSlot);
-        if (e.code === 'KeyT' || e.code === 'Enter') this.openChat();
+        if (action || e.code === 'Tab' || e.code === 'Space') e.preventDefault();
+        if (e.repeat) return;
+        if (e.code === 'Enter') return this.openChat();
+        this.press(e.code);
       },
-      keyup: (e) => {
-        this.keys.delete(e.code);
-        if (e.code === 'Tab') $('scoreboard').classList.add('hidden');
-      },
+      keyup: (e) => this.release(e.code),
       mousedown: (e) => {
         if (!this.locked) return;
-        if (e.button === 0) { this.mouseDown = true; this.firedSinceDown = false; }
-        if (e.button === 2) this.zoomHeld = true;
+        if (e.button > 2) e.preventDefault(); // stop "back/forward" mouse buttons navigating away
+        this.press('Mouse' + e.button);
       },
-      mouseup: (e) => {
-        if (e.button === 0) this.mouseDown = false;
-        if (e.button === 2) this.zoomHeld = false;
-      },
+      mouseup: (e) => this.release('Mouse' + e.button),
       mousemove: (e) => {
         if (!this.locked || !this.alive) return;
         const zoomMul = this.zoomed ? settings.zoomSens * (this.camera.fov / settings.fov) : 1;
@@ -293,6 +285,16 @@ export class Game {
       lockchange: () => {
         this.locked = document.pointerLockElement === canvas;
         $('clickToPlay').classList.toggle('hidden', this.locked || this.menuOpen || this.chatOpen);
+        if (!this.locked && performance.now() < (this.fsSwitchUntil || 0) && !this.menuOpen && !this.chatOpen) {
+          // some browsers drop the mouse lock while switching to fullscreen: just take it back
+          this.keys.clear();
+          this.mouseDown = false;
+          this.zoomHeld = false;
+          this.fsSwitchUntil = 0;
+          $('clickToPlay').classList.remove('hidden');
+          setTimeout(() => this.running && !this.locked && this.lock(), 100);
+          return;
+        }
         if (!this.locked) {
           this.keys.clear();
           this.mouseDown = false;
@@ -300,7 +302,7 @@ export class Game {
           if (!this.chatOpen && this.running) this.openMenu();
         }
       },
-      blur: () => { this.keys.clear(); this.mouseDown = false; },
+      blur: () => { this.keys.clear(); this.mouseDown = false; this.zoomHeld = false; },
     };
     addEventListener('keydown', this.h.keydown);
     addEventListener('keyup', this.h.keyup);
@@ -312,6 +314,41 @@ export class Game {
     addEventListener('blur', this.h.blur);
     canvas.addEventListener('click', this.h.click);
     document.addEventListener('pointerlockchange', this.h.lockchange);
+  }
+
+  // Which action (from Settings -> Keybinds) a key or mouse button is bound to.
+  actionFor(code) {
+    const keys = settings.keys;
+    for (const id in keys) if (keys[id] === code) return id;
+    // either Shift / Ctrl works when one side is bound
+    const twin = { ShiftRight: 'ShiftLeft', ShiftLeft: 'ShiftRight', ControlRight: 'ControlLeft', ControlLeft: 'ControlRight' }[code];
+    if (twin) for (const id in keys) if (keys[id] === twin) return id;
+    return null;
+  }
+
+  held(action) {
+    for (const code of this.keys) if (this.actionFor(code) === action) return true;
+    return false;
+  }
+
+  press(code) {
+    this.keys.add(code);
+    const action = this.actionFor(code);
+    if (!action) return;
+    if (action === 'shoot') { this.mouseDown = true; this.firedSinceDown = false; }
+    else if (action === 'aim') this.zoomHeld = true;
+    else if (action === 'reload') this.startReload();
+    else if (action === 'prevWeapon') this.switchSlot(this.lastSlot);
+    else if (action === 'chat') this.openChat();
+    else if (action.startsWith('slot')) this.switchSlot(Number(action.slice(4)) - 1);
+  }
+
+  release(code) {
+    this.keys.delete(code);
+    const action = this.actionFor(code);
+    if (action === 'shoot') this.mouseDown = false;
+    else if (action === 'aim') this.zoomHeld = false;
+    else if (action === 'scoreboard') $('scoreboard').classList.add('hidden');
   }
 
   unbindInput() {
@@ -329,6 +366,10 @@ export class Game {
 
   lock() {
     const canvas = $('gameCanvas');
+    // Fullscreen hides the Windows taskbar and the browser toolbars while playing.
+    // Pointer lock is requested first: going fullscreen uses up the click's permission.
+    const goFullscreen = settings.fullscreen && document.fullscreenEnabled && !document.fullscreenElement;
+    if (goFullscreen) this.fsSwitchUntil = performance.now() + 1500;
     try {
       const r = canvas.requestPointerLock({ unadjustedMovement: true });
       if (r && r.catch) r.catch(() => {
@@ -339,6 +380,7 @@ export class Game {
     } catch {
       canvas.requestPointerLock();
     }
+    if (goFullscreen) document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
   }
 
   openMenu() {
@@ -978,10 +1020,9 @@ export class Game {
   update(dt, now) {
     const pl = this.player;
     const canMove = this.alive && this.locked;
-    const k = this.keys;
     const input = canMove ? {
-      f: k.has('KeyW'), b: k.has('KeyS'), l: k.has('KeyA'), r: k.has('KeyD'),
-      sprint: k.has('ShiftLeft') || k.has('ShiftRight'), jump: k.has('Space'), dash: k.has('KeyX'), zoom: this.zoomed,
+      f: this.held('forward'), b: this.held('back'), l: this.held('left'), r: this.held('right'),
+      sprint: this.held('sprint'), jump: this.held('jump'), dash: this.held('dash'), zoom: this.zoomed,
     } : {};
 
     if (this.alive) {
@@ -1118,6 +1159,7 @@ export class Game {
     this.set('ammoMag', String(cur.mag));
     this.set('ammoRes', cur.reserve === Infinity ? '∞' : String(cur.reserve));
     $('reloadHint').classList.toggle('hidden', !(cur.mag === 0 && !this.reloading && cur.reserve > 0));
+    this.set('reloadHint', `Press ${keyLabel(settings.keys.reload)} to reload`);
     const slotsHtml = this.slots.map((s, i) => {
       const num = `<span class="num">${(i + 1) % 10}</span>`;
       if (!s) return `<div class="slot empty">${num}</div>`;
@@ -1188,6 +1230,7 @@ export class Game {
     this.unsub();
     removeEventListener('resize', this.onResize);
     if (document.pointerLockElement) document.exitPointerLock();
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     if (this.worldGroup) this.worldGroup.traverse((o) => o.geometry && o.geometry.dispose());
     for (const id of ['endScreen', 'deathScreen', 'scoreboard', 'scopeOverlay', 'chatInput', 'clickToPlay']) $(id).classList.add('hidden');
     $('killfeed').innerHTML = '';

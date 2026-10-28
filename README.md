@@ -28,6 +28,8 @@ Whenever the code changes, a GitHub Action rebuilds the site automatically.
 
 ## Controls
 
+These are the defaults. You can change any of them in **Settings → Keybinds** (click a control, then press a key or mouse button).
+
 | Key | Action |
 | --- | --- |
 | W A S D | Move |
@@ -49,6 +51,7 @@ Whenever the code changes, a GitHub Action rebuilds the site automatically.
 - Everyone has 100 HP. Only the Sniper, a headshot, or a Shotgun blast at point-blank range (3 blocks or closer) can take out a full-health player in one shot.
 - Every building can be entered, with stairs to upper floors and flat roofs.
 - Headshots, health regeneration after 5 seconds out of combat, kill feed, scoreboard, chat, rocket jumping, and lava that hurts (Magma Core).
+- The game goes fullscreen when you click into it (so the Windows taskbar and browser bars can't cover the screen), and the HUD and menus resize to fit small or short windows. Both can be adjusted in Settings (Fullscreen While Playing, HUD Size).
 - Room settings: match time (3–15 min), map, and max players (2–16). Room codes are random and can never clash with another open room.
 
 ## For tinkerers

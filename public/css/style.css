@@ -6,6 +6,7 @@ body { background: linear-gradient(180deg, #8fd3ff 0%, #bfe6ff 50%, #e6f6ff 100%
 
 /* ---------- Home ---------- */
 #home { display: flex; flex-direction: column; align-items: center; background: linear-gradient(180deg, #7cc8ff 0%, #a9dcff 45%, #e3f5ff 100%); overflow: auto; }
+#home > .logo, #home > .home-grid { zoom: var(--home, 1); }
 .logo { font-family: 'Lilita One', 'Arial Black', sans-serif; font-size: clamp(42px, 7vw, 84px); margin: 24px 0 4px; color: #fff; letter-spacing: 2px;
   text-shadow: 0 5px 0 #2a6fa3, 0 9px 18px rgba(0,0,0,.2); }
 .logo span { color: #ffd23f; margin-left: 12px; }
@@ -39,7 +40,7 @@ kbd { display: inline-block; min-width: 24px; padding: 2px 6px; margin-right: 3p
 
 /* ---------- Modals ---------- */
 .modal { position: fixed; inset: 0; background: rgba(10, 40, 70, .45); display: flex; align-items: center; justify-content: center; z-index: 50; }
-.modal-box { position: relative; width: min(440px, 92vw); max-height: 92vh; overflow: auto; background: linear-gradient(180deg, #ffffff, #e8f6ff); border-radius: 20px; padding: 24px; box-shadow: 0 20px 50px rgba(0,0,0,.3); border: 4px solid #fff; }
+.modal-box { zoom: var(--modal, 1); position: relative; width: min(440px, 92vw); max-height: calc(92vh / var(--modal, 1)); overflow: auto; background: linear-gradient(180deg, #ffffff, #e8f6ff); border-radius: 20px; padding: 24px; box-shadow: 0 20px 50px rgba(0,0,0,.3); border: 4px solid #fff; }
 .modal-box.wide { width: min(560px, 94vw); }
 .modal-box h2 { font-family: 'Lilita One', sans-serif; font-weight: 400; margin: 0 0 14px; color: #1d5a87; font-size: 30px; }
 .close-x { position: absolute; top: 10px; right: 12px; border: none; background: none; font-size: 20px; cursor: pointer; color: #5a7c96; }
@@ -57,7 +58,8 @@ kbd { display: inline-block; min-width: 24px; padding: 2px 6px; margin-right: 3p
 .settings-grid span { color: #3b8fcf; }
 .settings-grid input[type=range] { width: 100%; accent-color: #3b8fcf; }
 .settings-grid input[type=checkbox] { width: 22px; height: 22px; accent-color: #3b8fcf; justify-self: start; }
-.row-btns { display: flex; gap: 12px; margin-top: 22px; }
+/* keep Resume / Leave visible even when the settings list has to scroll */
+.row-btns { display: flex; gap: 12px; margin: 18px -24px -24px; padding: 14px 24px 20px; position: sticky; bottom: -24px; background: linear-gradient(180deg, rgba(232,246,255,.85), #e8f6ff 40%); }
 .row-btns .btn { flex: 1; }
 .room-info { background: #d7ecfa; border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; font-weight: 800; color: #1d5a87; }
 .room-info b { font-family: 'Lilita One', monospace; font-size: 26px; letter-spacing: 4px; color: #12324a; }
@@ -83,30 +85,30 @@ kbd { display: inline-block; min-width: 24px; padding: 2px 6px; margin-right: 3p
 #scopeOverlay::before, #scopeOverlay::after { content: ''; position: absolute; background: #000; }
 #scopeOverlay::before { left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; }
 #scopeOverlay::after { top: 50%; left: 0; right: 0; height: 2px; margin-top: -1px; }
-#topBar { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); text-align: center; }
+#topBar { position: absolute; top: calc(10px * var(--hud, 1)); left: 50%; transform: translateX(-50%) scale(var(--hud, 1)); transform-origin: top center; text-align: center; }
 #timer { font-family: 'Lilita One', sans-serif; font-size: 34px; background: rgba(0,0,0,.35); padding: 2px 18px; border-radius: 12px; }
 #roomCode { font-size: 14px; margin-top: 4px; letter-spacing: 2px; }
 #mapName { font-size: 12px; opacity: .85; }
-#leader { position: absolute; top: 12px; left: 14px; font-size: 15px; background: rgba(0,0,0,.3); padding: 8px 12px; border-radius: 10px; line-height: 1.5; }
-#killfeed { position: absolute; top: 12px; right: 14px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+#leader { position: absolute; top: calc(12px * var(--hud, 1)); left: calc(14px * var(--hud, 1)); transform: scale(var(--hud, 1)); transform-origin: top left; font-size: 15px; background: rgba(0,0,0,.3); padding: 8px 12px; border-radius: 10px; line-height: 1.5; }
+#killfeed { position: absolute; top: calc(12px * var(--hud, 1)); right: calc(14px * var(--hud, 1)); transform: scale(var(--hud, 1)); transform-origin: top right; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .kf { background: rgba(0,0,0,.45); padding: 4px 10px; border-radius: 8px; font-size: 14px; animation: fadein .15s; }
 .kf .wpn { color: #ffd23f; margin: 0 6px; font-size: 12px; }
 .kf.me { outline: 2px solid #ffd23f; }
-#fps { position: absolute; top: 110px; right: 14px; font-size: 12px; }
-#chatLog { position: absolute; left: 14px; bottom: 150px; width: 360px; font-size: 14px; display: flex; flex-direction: column; gap: 2px; }
+#fps { position: absolute; top: calc(160px * var(--hud, 1)); right: 14px; font-size: 12px; }
+#chatLog { position: absolute; left: calc(14px * var(--hud, 1)); bottom: calc(160px * var(--hud, 1)); transform: scale(var(--hud, 1)); transform-origin: bottom left; width: 360px; font-size: 14px; display: flex; flex-direction: column; gap: 2px; }
 #chatLog div { background: rgba(0,0,0,.3); padding: 2px 8px; border-radius: 6px; animation: fadein .15s; }
-#chatInput { position: absolute; left: 14px; bottom: 118px; width: 360px; padding: 6px 10px; border-radius: 8px; border: 2px solid #fff; background: rgba(0,0,0,.5); color: #fff; pointer-events: auto; outline: none; font-weight: 700; }
-#bottomLeft { position: absolute; left: 18px; bottom: 18px; width: min(300px, 22vw); }
+#chatInput { position: absolute; left: calc(14px * var(--hud, 1)); bottom: calc(124px * var(--hud, 1)); transform: scale(var(--hud, 1)); transform-origin: bottom left; width: 360px; padding: 6px 10px; border-radius: 8px; border: 2px solid #fff; background: rgba(0,0,0,.5); color: #fff; pointer-events: auto; outline: none; font-weight: 700; }
+#bottomLeft { position: absolute; left: calc(18px * var(--hud, 1)); bottom: calc(18px * var(--hud, 1)); width: 300px; transform: scale(var(--hud, 1)); transform-origin: bottom left; }
 .hp-wrap { position: relative; height: 34px; background: rgba(0,0,0,.45); border-radius: 10px; overflow: hidden; border: 3px solid rgba(255,255,255,.7); }
 #hpFill { position: absolute; inset: 0; width: 100%; background: linear-gradient(180deg, #5fe06a, #2fb53e); transition: width .15s; }
 #hpText { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: 'Lilita One', sans-serif; font-size: 22px; }
 #dashBar { position: relative; margin-top: 8px; height: 18px; width: 160px; background: rgba(0,0,0,.45); border-radius: 8px; overflow: hidden; border: 2px solid rgba(255,255,255,.6); }
 #dashFill { position: absolute; inset: 0; background: #4fc3f7; }
 #dashBar span { position: absolute; inset: 0; font-size: 11px; display: flex; align-items: center; justify-content: center; letter-spacing: 1px; }
-#bottomRight { position: absolute; right: 18px; bottom: 18px; text-align: right; }
+#bottomRight { position: absolute; right: calc(18px * var(--hud, 1)); bottom: calc(18px * var(--hud, 1)); text-align: right; transform: scale(var(--hud, 1)); transform-origin: bottom right; }
 /* hotbar: 10 slots along the bottom middle of the screen */
-#slots { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; gap: 4px; }
-.slot { position: relative; width: clamp(40px, 4.6vw, 62px); height: clamp(32px, 3.4vw, 46px); background: rgba(0,0,0,.45); border-radius: 8px; border: 3px solid rgba(255,255,255,.25); display: flex; align-items: center; justify-content: center; }
+#slots { position: absolute; left: 50%; bottom: calc(16px * var(--hud, 1)); transform: translateX(-50%) scale(var(--hud, 1)); transform-origin: bottom center; display: flex; gap: 4px; }
+.slot { position: relative; width: 62px; height: 46px; background: rgba(0,0,0,.45); border-radius: 8px; border: 3px solid rgba(255,255,255,.25); display: flex; align-items: center; justify-content: center; }
 .slot.empty { background: rgba(0,0,0,.22); border-color: rgba(255,255,255,.12); }
 .slot.active { border-color: #ffd23f; background: rgba(40,30,0,.55); transform: translateY(-4px); }
 .slot img { width: 92%; height: auto; image-rendering: pixelated; filter: drop-shadow(0 1px 0 rgba(255,255,255,.35)); }
@@ -116,13 +118,13 @@ kbd { display: inline-block; min-width: 24px; padding: 2px 6px; margin-right: 3p
 #ammo { font-family: 'Lilita One', sans-serif; font-size: 40px; line-height: 1; }
 #ammoRes { font-size: 24px; opacity: .8; }
 #reloadHint { color: #ffd23f; font-size: 14px; }
-#notice { position: absolute; left: 50%; top: 62%; transform: translateX(-50%); font-family: 'Lilita One', sans-serif; font-size: 22px; opacity: 0; transition: opacity .3s; }
+#notice { position: absolute; left: 50%; top: 62%; transform: translateX(-50%) scale(var(--hud, 1)); white-space: nowrap; font-family: 'Lilita One', sans-serif; font-size: 22px; opacity: 0; transition: opacity .3s; }
 #clickToPlay { position: absolute; left: 50%; top: 40%; transform: translateX(-50%); font-family: 'Lilita One', sans-serif; font-size: 32px; background: rgba(0,0,0,.45); padding: 10px 26px; border-radius: 14px; }
 #deathScreen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(120, 0, 0, .28); }
 .big-text { font-family: 'Lilita One', sans-serif; font-size: 64px; color: #ff4a3d; text-shadow: 0 4px 0 #000; }
 #killedBy { font-size: 22px; margin-top: 6px; }
 #respawnTimer { font-size: 18px; margin-top: 14px; opacity: .9; }
-#scoreboard, #endScreen { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); min-width: 440px; background: rgba(10, 30, 50, .82); border-radius: 16px; padding: 18px 22px; }
+#scoreboard, #endScreen { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(var(--modal, 1)); min-width: 440px; background: rgba(10, 30, 50, .82); border-radius: 16px; padding: 18px 22px; }
 #endScreen { min-width: 480px; text-align: center; }
 #endScreen h2, #scoreboard h2 { font-family: 'Lilita One', sans-serif; font-weight: 400; margin: 0 0 10px; font-size: 30px; }
 table.sb { width: 100%; border-collapse: collapse; font-size: 16px; }
@@ -145,6 +147,15 @@ table.sb tr.me td { color: #ffd23f; }
 .invite .btn.small { margin-top: 0; white-space: nowrap; }
 .host-note { margin: 10px 0 0; font-size: 13px; color: #b45309; }
 .btn:disabled { opacity: .6; cursor: wait; }
-@media (max-width: 1100px) {
-  #slots { bottom: 92px; }
-}
+
+/* settings tabs + keybinds */
+.settings-tabs { margin-bottom: 14px; }
+.kb-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; margin-top: 10px; }
+.kb-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-weight: 800; color: #2b5f86; font-size: 14px; }
+.kb-btn { min-width: 110px; padding: 6px 10px; border-radius: 8px; border: 3px solid #b6dcf5; background: #fff; font: inherit; font-weight: 800; color: #12324a; cursor: pointer; }
+.kb-btn:hover { border-color: #3ea0e6; }
+.kb-btn.changed { border-color: #ffd23f; }
+.kb-btn.listening { border-color: #3b8fcf; background: #3b8fcf; color: #fff; font-size: 12px; }
+.kb-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; }
+.kb-footer .btn.small { margin-top: 0; white-space: nowrap; }
+@media (max-width: 560px) { .kb-list { grid-template-columns: 1fr; } }

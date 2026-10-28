@@ -4,7 +4,8 @@ import { MAPS } from './shared/maps.js';
 import { Net } from './net.js';
 import { Game } from './game.js';
 import { buildCharacter, setCharacterColor, poseCharacter } from './models.js';
-import { bindSettingsUI } from './settings.js';
+import { settings, bindSettingsUI, onSettingsChange } from './settings.js';
+import { keyLabel } from './keybinds.js';
 import { unlockAudio, sfx } from './audio.js';
 
 const $ = (id) => document.getElementById(id);
@@ -128,13 +129,13 @@ function openRoomModal(tab = 'createTab') {
   selectTab(tab);
 }
 function selectTab(tab) {
-  document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === tab));
+  document.querySelectorAll('[data-tab]').forEach((t) => t.classList.toggle('active', t.dataset.tab === tab));
   $('createTab').classList.toggle('hidden', tab !== 'createTab');
   $('joinTab').classList.toggle('hidden', tab !== 'joinTab');
   $('roomError').textContent = '';
   if (tab === 'joinTab') setTimeout(() => $('codeInput').focus(), 0);
 }
-document.querySelectorAll('.tab').forEach((t) => (t.onclick = () => selectTab(t.dataset.tab)));
+document.querySelectorAll('[data-tab]').forEach((t) => (t.onclick = () => selectTab(t.dataset.tab)));
 document.querySelectorAll('[data-close]').forEach((b) => (b.onclick = () => $(b.dataset.close).classList.add('hidden')));
 $('joinCreateBtn').onclick = () => { unlockAudio(); sfx.click(); openRoomModal(); };
 
@@ -205,6 +206,34 @@ function toast(text) {
   clearTimeout(toast.t);
   toast.t = setTimeout(() => t.classList.add('hidden'), 4000);
 }
+
+// ---------------------------------------------------------------- screen fit
+// Everything is drawn at a size that fits the window, so short laptop screens
+// (Windows display scaling, browser toolbars, taskbar) still show the whole UI.
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+function applyUiScale() {
+  const w = innerWidth, h = innerHeight, root = document.documentElement.style;
+  root.setProperty('--hud', (clamp(Math.min(w / 1450, h / 800), 0.55, 1.2) * settings.hudScale).toFixed(3));
+  root.setProperty('--home', clamp(Math.min(w / 1250, h / 780), 0.5, 1).toFixed(3));
+  root.setProperty('--modal', clamp(Math.min(w / 640, h / 760), 0.6, 1).toFixed(3));
+}
+addEventListener('resize', applyUiScale);
+applyUiScale();
+
+// Home screen control list shows your current keybinds.
+function renderControls() {
+  const k = (id) => `<kbd>${keyLabel(settings.keys[id])}</kbd>`;
+  const rows = [
+    [k('forward') + k('left') + k('back') + k('right'), 'Move'],
+    [k('sprint'), 'Sprint (hold)'], [k('jump'), 'Jump'], [k('dash'), 'Dash'],
+    [k('shoot'), 'Shoot'], [k('aim'), 'Zoom / Aim'], [k('reload'), 'Reload'],
+    [k('slot1') + '–' + k('slot10'), '/ Wheel Switch gun (10 slots)'], [k('prevWeapon'), 'Previous gun'],
+    [k('scoreboard'), 'Scoreboard'], [k('chat'), 'Chat'], ['<kbd>Esc</kbd>', 'Settings'],
+  ];
+  $('controlsList').innerHTML = rows.map(([keys, text]) => `<li>${keys} ${text}</li>`).join('');
+}
+renderControls();
+onSettingsChange(() => { applyUiScale(); renderControls(); });
 
 // ---------------------------------------------------------------- settings
 bindSettingsUI();
