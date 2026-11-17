@@ -13,6 +13,7 @@ import { playGun, sfx, setVolume } from './audio.js';
 import { blockColor } from './textures.js';
 import { Minimap } from './minimap.js';
 import { Weather } from './weather.js';
+import { progress, saveProgress, addXp, levelInfo, XP } from './progress.js';
 
 // which weather each map has (by map number)
 const MAP_WEATHER = ['pollen', 'dust', 'snow', 'rain', 'leaves', 'dust', 'pollen', null, 'embers', null];
@@ -172,6 +173,8 @@ export class Game {
 
     this.streaks.clear();
     this.multi.n = 0;
+    this.matchXp = 0;
+    this.counted = false; // this match's result not yet added to lifetime stats
     this.alive = false;
     this.hp = 100;
     this.deathAt = -1e9;
@@ -182,7 +185,8 @@ export class Game {
     $('deathScreen').classList.add('hidden');
     $('mapName').textContent = MAPS[data.mapIndex].name;
     setTimeout(() => $('loading').classList.add('hidden'), 150);
-    if (this.state === 'ended') this.showEnd(data.players.slice().sort((a, b) => b.kills - a.kills), data.timeLeft);
+    // joined while the last match's results are showing: nothing of mine to count
+    if (this.state === 'ended') this.showEnd(data.players.slice().sort((a, b) => b.kills - a.kills), data.timeLeft, false);
   }
 
   loadMap(index) {
@@ -237,7 +241,7 @@ export class Game {
     model.position.copy(pos);
     model.visible = !info.dead;
     this.players.set(info.id, {
-      id: info.id, name: info.name, color, team: info.team ?? -1, bot: !!info.bot, kills: info.kills || 0, deaths: info.deaths || 0,
+      id: info.id, name: info.name, color, team: info.team ?? -1, bot: !!info.bot, lvl: info.lvl || 0, kills: info.kills || 0, deaths: info.deaths || 0,
       hp: info.hp ?? 100, dead: !!info.dead, model, tag, pos, target: pos.clone(), yaw: 0, tyaw: 0, pitch: 0, tpitch: 0,
       w: 'pistol', speed: 0,
     });
@@ -689,6 +693,13 @@ export class Game {
     if (title || quick) this.banner(title || quick, title && quick ? quick : `${s} in a row`, title ? 2 : 1);
   }
 
+  // Add XP; crossing into a new level gets a banner.
+  earn(xp) {
+    this.matchXp += xp;
+    const newLevel = addXp(xp);
+    if (newLevel) setTimeout(() => this.running && this.banner('LEVEL UP!', `You are now level ${newLevel}`, 3), 900);
+  }
+
   banner(big, small, level) {
     const el = $('streak');
     el.innerHTML = `<div class="big">${esc(big)}</div><div class="small">${esc(small)}</div>`;
@@ -709,6 +720,8 @@ export class Game {
 
     if (m.v === this.myId) {
       this.alive = false;
+      progress.deaths++;
+      saveProgress();
       this.deathAt = performance.now();
       this.killedBy = m.k !== this.myId ? m.k : null;
       this.hp = 0;
@@ -728,7 +741,12 @@ export class Game {
       }
       if (m.k === this.myId) {
         sfx.kill();
-        this.notice(`You eliminated ${name(m.v)}${m.head ? ' (headshot!)' : ''}`);
+        const xp = (p && p.bot ? XP.botKill : XP.kill) + (m.head ? XP.headshot : 0);
+        progress.kills++;
+        if (m.head) progress.headshots++;
+        progress.bestStreak = Math.max(progress.bestStreak, this.streaks.get(this.myId) || 0);
+        this.earn(xp);
+        this.notice(`You eliminated ${name(m.v)}${m.head ? ' (headshot!)' : ''}  +${xp} XP`);
       }
     }
   }
@@ -1438,14 +1456,14 @@ export class Game {
   }
 
   allScores() {
-    const list = [...this.players.values()].map((p) => ({ id: p.id, name: p.name, color: p.color, team: p.team, kills: p.kills, deaths: p.deaths }));
-    list.push({ id: this.myId, name: this.me.name, color: this.me.color, team: this.myTeam, kills: this.myStats.kills, deaths: this.myStats.deaths });
+    const list = [...this.players.values()].map((p) => ({ id: p.id, name: p.name, color: p.color, team: p.team, bot: p.bot, lvl: p.lvl, kills: p.kills, deaths: p.deaths }));
+    list.push({ id: this.myId, name: this.me.name, color: this.me.color, team: this.myTeam, lvl: levelInfo().level, kills: this.myStats.kills, deaths: this.myStats.deaths });
     return list.sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
   }
 
   table(list) {
-    return `<table class="sb"><tr><th>#</th><th>PLAYER</th><th>KILLS</th><th>DEATHS</th></tr>${list
-      .map((p, i) => `<tr class="${p.id === this.myId ? 'me' : ''}"><td>${i + 1}</td><td><span class="dot" style="background:${esc(p.color)}"></span>${esc(p.name)}${p.id === this.hostId ? ' 👑' : ''}</td><td>${p.kills}</td><td>${p.deaths}</td></tr>`)
+    return `<table class="sb"><tr><th>#</th><th>PLAYER</th><th>LEVEL</th><th>KILLS</th><th>DEATHS</th></tr>${list
+      .map((p, i) => `<tr class="${p.id === this.myId ? 'me' : ''}"><td>${i + 1}</td><td><span class="dot" style="background:${esc(p.color)}"></span>${esc(p.name)}${p.id === this.hostId ? ' 👑' : ''}</td><td>${p.bot ? 'bot' : p.lvl || 1}</td><td>${p.kills}</td><td>${p.deaths}</td></tr>`)
       .join('')}</table>`;
   }
 
@@ -1460,9 +1478,26 @@ export class Game {
     $('scoreboard').innerHTML = `<h2>${esc(MODES[this.mode])} · ${esc(this.local ? 'Practice' : this.code)}</h2>${this.tables(this.allScores())}`;
   }
 
-  showEnd(board, nextMs) {
+  // Lifetime stats for a finished match: did I win, plus the XP for it.
+  countMatch(board) {
+    if (this.counted) return '';
+    this.counted = true;
+    const mine = board.find((p) => p.id === this.myId);
+    let won = false;
+    if (this.mode === 'tdm') won = this.myTeam >= 0 && this.teamScore[this.myTeam] > this.teamScore[1 - this.myTeam];
+    else won = !!mine && board[0].id === this.myId && mine.kills > 0;
+    progress.matches++;
+    if (won) progress.wins++;
+    this.earn(XP.match + (won ? XP.win : 0));
+    const info = levelInfo();
+    return `<p class="xp-line">${won ? 'Victory! ' : ''}You earned <b>${this.matchXp} XP</b> this match · Level ${info.level} (${info.into} / ${info.need} XP)</p>`;
+  }
+
+  showEnd(board, nextMs, count = true) {
     this.endUntil = performance.now() + nextMs;
-    board = board.map((p) => ({ ...p, color: this.colorOf(p) }));
+    const xpLine = count ? this.countMatch(board) : '';
+    board = board.map((p) => ({ ...p, color: this.colorOf(p), lvl: p.id === this.myId ? levelInfo().level : p.lvl }));
+    $('deathScreen').classList.add('hidden'); // the results cover it
     const winner = board[0];
     let headline = winner ? `🏆 <span style="color:${esc(winner.color)}">${esc(winner.name)}</span> wins with ${winner.kills} kills!` : '';
     if (this.mode === 'tdm') {
@@ -1470,7 +1505,7 @@ export class Game {
       headline = r === b ? `It's a draw, ${r} – ${b}!` : `🏆 <span style="color:${TEAMS[r > b ? 0 : 1].color}">${TEAMS[r > b ? 0 : 1].name} team</span> wins ${Math.max(r, b)} – ${Math.min(r, b)}!`;
     }
     $('endScreen').innerHTML = `<h2>MATCH OVER</h2><p style="font-size:22px;margin:0 0 12px">${headline}</p>
-      ${this.tables(board)}<p style="margin-top:14px">Next match in <span id="nextIn">${Math.ceil(nextMs / 1000)}</span>s${this.roomSettings.map === 'random' ? ' on a new random map' : ''}...</p>`;
+      ${this.tables(board)}${xpLine}<p style="margin-top:14px">Next match in <span id="nextIn">${Math.ceil(nextMs / 1000)}</span>s${this.roomSettings.map === 'random' ? ' on a new random map' : ''}...</p>`;
     $('endScreen').classList.remove('hidden');
   }
 

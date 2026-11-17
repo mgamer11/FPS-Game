@@ -8,6 +8,7 @@ import { buildCharacter, setCharacterColor, poseCharacter } from './models.js';
 import { settings, bindSettingsUI, onSettingsChange } from './settings.js';
 import { keyLabel } from './keybinds.js';
 import { unlockAudio, sfx } from './audio.js';
+import { progress, levelInfo } from './progress.js';
 
 const $ = (id) => document.getElementById(id);
 const COLORS = ['#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#a855f7', '#ec4899', '#14b8a6', '#f97316', '#64748b', '#eab308', '#0ea5e9', '#111827'];
@@ -90,6 +91,17 @@ for (const c of COLORS) {
   };
   sw.appendChild(d);
 }
+
+// Level, XP bar and lifetime stats under your name.
+function renderProgress() {
+  const { level, into, need } = levelInfo();
+  $('lvlNum').textContent = level;
+  $('xpFill').style.width = Math.round((into / need) * 100) + '%';
+  $('xpText').textContent = `${into} / ${need} XP`;
+  const kd = progress.deaths ? (progress.kills / progress.deaths).toFixed(2) : progress.kills.toFixed(2);
+  $('statsLine').textContent = `Kills ${progress.kills} · Deaths ${progress.deaths} · K/D ${kd} · Wins ${progress.wins} of ${progress.matches} matches · Best streak ${progress.bestStreak}`;
+}
+renderProgress();
 
 function playerName() {
   return (profile.name || '').trim() || 'Player' + Math.floor(100 + Math.random() * 900);
@@ -185,7 +197,7 @@ $('createBtn').onclick = () => {
   const map = mapSelect.value === 'random' ? 'random' : Number(mapSelect.value);
   profile.botSkill = getBotSkill();
   saveProfile();
-  const me = { name: playerName(), color: profile.color };
+  const me = { name: playerName(), color: profile.color, lvl: levelInfo().level };
   if (practice) {
     const bots = Math.max(1, getBots());
     const settings = { map, time: getTime(), maxPlayers: bots + 1, bots, botSkill: getBotSkill(), mode: getMode() };
@@ -202,7 +214,7 @@ $('joinBtn').onclick = () => {
     $('roomError').textContent = 'Room codes are exactly 5 letters/numbers.';
     return;
   }
-  request(() => net.join(code, { name: playerName(), color: profile.color }), 'Connecting to room ' + code + '...');
+  request(() => net.join(code, { name: playerName(), color: profile.color, lvl: levelInfo().level }), 'Connecting to room ' + code + '...');
 };
 
 // ---------------------------------------------------------------- game start / exit
@@ -220,6 +232,7 @@ function startGame(data) {
       $('game').classList.add('hidden');
       $('home').classList.remove('hidden');
       preview.setActive(true);
+      renderProgress();
       if (reason) toast(reason);
     },
   });
