@@ -26,6 +26,7 @@
       <div class="center-col">
         <div id="modelHolder"><canvas id="modelCanvas"></canvas></div>
         <button id="joinCreateBtn" class="btn big">JOIN OR CREATE</button>
+        <button id="practiceBtn" class="btn ghost">PRACTICE VS BOTS</button>
       </div>
 
       <div class="panel side-panel">
@@ -43,6 +44,7 @@
       <div class="tabs">
         <button class="tab active" data-tab="createTab">Create Room</button>
         <button class="tab" data-tab="joinTab">Join Room</button>
+        <button class="tab" data-tab="practiceTab">Practice</button>
       </div>
       <div id="createTab" class="tab-body">
         <label class="lbl">Map</label>
@@ -50,8 +52,15 @@
         <p id="mapDesc" class="desc"></p>
         <label class="lbl">Match Time</label>
         <div class="seg" id="timeSeg"></div>
-        <label class="lbl">Max Players</label>
-        <div class="seg" id="playersSeg"></div>
+        <div id="playersRow">
+          <label class="lbl">Max Players</label>
+          <div class="seg" id="playersSeg"></div>
+        </div>
+        <label class="lbl">Bots (computer players)</label>
+        <div class="seg" id="botsSeg"></div>
+        <label class="lbl">Bot Difficulty</label>
+        <div class="seg" id="botSkillSeg"></div>
+        <p id="practiceNote" class="desc hidden">Just you against the bots. Works without internet, and friends can't join.</p>
         <button id="createBtn" class="btn">CREATE</button>
       </div>
       <div id="joinTab" class="tab-body hidden">

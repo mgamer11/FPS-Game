@@ -118,10 +118,18 @@ function segmented(el, values, initial, fmt) {
     };
     el.appendChild(b);
   }
-  return () => value;
+  const get = () => value;
+  get.set = (v) => {
+    value = v;
+    [...el.querySelectorAll('button')].forEach((x, i) => x.classList.toggle('sel', values[i] === v));
+  };
+  return get;
 }
 const getTime = segmented($('timeSeg'), [3, 5, 8, 10, 15], 5, (v) => v + ' min');
 const getPlayers = segmented($('playersSeg'), [2, 4, 6, 8, 10, 12, 16], 8, (v) => String(v));
+const getBots = segmented($('botsSeg'), [0, 1, 2, 3, 4, 6, 8, 11], 0, (v) => (v ? String(v) : 'None'));
+const getBotSkill = segmented($('botSkillSeg'), ['easy', 'normal', 'hard'], profile.botSkill || 'normal', (v) => v[0].toUpperCase() + v.slice(1));
+let practice = false;
 
 function openRoomModal(tab = 'createTab') {
   $('roomError').textContent = '';
@@ -130,7 +138,13 @@ function openRoomModal(tab = 'createTab') {
 }
 function selectTab(tab) {
   document.querySelectorAll('[data-tab]').forEach((t) => t.classList.toggle('active', t.dataset.tab === tab));
-  $('createTab').classList.toggle('hidden', tab !== 'createTab');
+  // Practice uses the same options as Create Room, minus the online-only ones
+  practice = tab === 'practiceTab';
+  $('createTab').classList.toggle('hidden', tab === 'joinTab');
+  $('playersRow').classList.toggle('hidden', practice);
+  $('practiceNote').classList.toggle('hidden', !practice);
+  $('createBtn').textContent = practice ? 'START PRACTICE' : 'CREATE';
+  if (practice && getBots() === 0) getBots.set(4);
   $('joinTab').classList.toggle('hidden', tab !== 'joinTab');
   $('roomError').textContent = '';
   if (tab === 'joinTab') setTimeout(() => $('codeInput').focus(), 0);
@@ -138,6 +152,7 @@ function selectTab(tab) {
 document.querySelectorAll('[data-tab]').forEach((t) => (t.onclick = () => selectTab(t.dataset.tab)));
 document.querySelectorAll('[data-close]').forEach((b) => (b.onclick = () => $(b.dataset.close).classList.add('hidden')));
 $('joinCreateBtn').onclick = () => { unlockAudio(); sfx.click(); openRoomModal(); };
+$('practiceBtn').onclick = () => { unlockAudio(); sfx.click(); openRoomModal('practiceTab'); };
 
 const codeInput = $('codeInput');
 codeInput.addEventListener('input', () => {
@@ -166,8 +181,17 @@ async function request(fn, label) {
 $('createBtn').onclick = () => {
   unlockAudio();
   const map = mapSelect.value === 'random' ? 'random' : Number(mapSelect.value);
-  const settings = { map, time: getTime(), maxPlayers: getPlayers() };
-  request(() => net.create(settings, { name: playerName(), color: profile.color }), 'Creating room...');
+  profile.botSkill = getBotSkill();
+  saveProfile();
+  const me = { name: playerName(), color: profile.color };
+  if (practice) {
+    const bots = Math.max(1, getBots());
+    const settings = { map, time: getTime(), maxPlayers: bots + 1, bots, botSkill: getBotSkill() };
+    request(() => net.createLocal(settings, me), 'Starting practice...');
+  } else {
+    const settings = { map, time: getTime(), maxPlayers: getPlayers(), bots: getBots(), botSkill: getBotSkill() };
+    request(() => net.create(settings, me), 'Creating room...');
+  }
 };
 $('joinBtn').onclick = () => {
   unlockAudio();

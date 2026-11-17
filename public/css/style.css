@@ -12,6 +12,7 @@ body { background: linear-gradient(180deg, #8fd3ff 0%, #bfe6ff 50%, #e6f6ff 100%
 .logo span { color: #ffd23f; margin-left: 12px; }
 .home-grid { display: grid; grid-template-columns: 1fr minmax(280px, 420px) 1fr; gap: 28px; width: min(1180px, 96vw); align-items: center; flex: 1; padding-bottom: 24px; }
 .center-col { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+#practiceBtn { font-size: 18px; padding: 10px 26px; }
 #modelHolder { width: 100%; aspect-ratio: 3 / 4; max-height: 58vh; cursor: grab; }
 #modelHolder:active { cursor: grabbing; }
 #modelCanvas { width: 100%; height: 100%; display: block; }
@@ -49,7 +50,7 @@ kbd { display: inline-block; min-width: 24px; padding: 2px 6px; margin-right: 3p
 .tab.active { background: #3b8fcf; color: #fff; }
 .tab-body .btn { width: 100%; margin-top: 18px; }
 .seg { display: flex; flex-wrap: wrap; gap: 6px; }
-.seg button { flex: 1; min-width: 48px; padding: 8px 6px; border-radius: 10px; border: 3px solid #b6dcf5; background: #fff; font-weight: 800; cursor: pointer; color: #2b5f86; }
+.seg button { flex: 1; min-width: 40px; padding: 8px 6px; border-radius: 10px; border: 3px solid #b6dcf5; background: #fff; font-weight: 800; cursor: pointer; color: #2b5f86; }
 .seg button.sel { background: #3b8fcf; border-color: #3b8fcf; color: #fff; }
 .desc { font-size: 13px; color: #4b7090; margin: 6px 0 0; min-height: 18px; }
 .code-input { font-family: 'Lilita One', monospace; font-size: 34px; text-align: center; letter-spacing: 12px; text-transform: uppercase; }

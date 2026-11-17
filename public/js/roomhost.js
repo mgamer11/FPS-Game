@@ -3,6 +3,9 @@
 // with a send(msg) method.
 import { MAPS, generateMap, mapHash } from './shared/maps.js';
 import { WEAPONS, maxHitDamage } from './shared/weapons.js';
+import { rayBox, playerBoxes } from './shared/voxel.js';
+import { navFor } from './shared/nav.js';
+import { BotManager, BOT_SKILLS, MAX_BOTS } from './bots.js';
 import { BUILD, VERSION_MISMATCH } from './version.js';
 
 const TICK_MS = 50; // 20 updates per second
@@ -28,7 +31,7 @@ function cleanColor(c) {
 }
 
 function publicPlayer(p) {
-  return { id: p.id, name: p.name, color: p.color, kills: p.kills, deaths: p.deaths, hp: p.hp, dead: p.dead, pos: p.pos };
+  return { id: p.id, name: p.name, color: p.color, kills: p.kills, deaths: p.deaths, hp: p.hp, dead: p.dead, pos: p.pos, bot: !!p.bot };
 }
 
 // A timer that keeps ticking even when the browser tab is in the background
@@ -52,13 +55,17 @@ export class RoomHost {
     const maxPlayers = Math.min(16, Math.max(2, Math.floor(Number(s.maxPlayers)) || 8));
     let map = s.map === 'random' ? 'random' : Number(s.map);
     if (map !== 'random' && !(map >= 0 && map < MAPS.length)) map = 'random';
+    const bots = Math.min(MAX_BOTS, Math.max(0, Math.floor(Number(s.bots)) || 0));
+    const botSkill = s.botSkill in BOT_SKILLS ? s.botSkill : 'normal';
     this.code = code;
-    this.settings = { time, maxPlayers, map };
+    this.settings = { time, maxPlayers, map, bots, botSkill };
     this.players = new Map();
     this.nextId = 1;
     this.mapIndex = -1;
     this.hostId = 0;
+    this.bots = new BotManager(this);
     this.startMatch();
+    this.bots.sync();
     this.last = Date.now();
     this.stopTimer = steadyInterval(() => this.tick(), TICK_MS);
   }
@@ -86,15 +93,59 @@ export class RoomHost {
     return this.settings.map;
   }
 
+  get nav() { return navFor(this.map); }
+
+  // In free-for-all everyone else is an enemy.
+  isEnemy(a, b) { return a !== b; }
+
+  // A spawn point away from the player's enemies.
+  chooseSpawn(p) {
+    const spawns = this.map.spawns;
+    let best = spawns[0], bestScore = -Infinity;
+    for (let i = 0; i < 10; i++) {
+      const s = spawns[Math.floor(Math.random() * spawns.length)];
+      let minD = 60;
+      for (const q of this.players.values()) {
+        if (q.dead || !this.isEnemy(p, q)) continue;
+        minD = Math.min(minD, Math.hypot(q.pos[0] - s[0], q.pos[1] - s[1], q.pos[2] - s[2]));
+      }
+      const score = minD + Math.random() * 8;
+      if (score > bestScore) { bestScore = score; best = s; }
+    }
+    return best;
+  }
+
+  // What a shot from origin along dir hits first: a wall or a player (used for bots' shots).
+  trace(origin, dir, range, shooter) {
+    const wh = this.map.world.raycast(origin[0], origin[1], origin[2], dir[0], dir[1], dir[2], range);
+    let best = wh ? wh.t : range, hitP = null, head = false;
+    for (const q of this.players.values()) {
+      if (q === shooter || q.dead) continue;
+      const bx = playerBoxes(q.pos[0], q.pos[1], q.pos[2]);
+      const th = rayBox(origin[0], origin[1], origin[2], dir[0], dir[1], dir[2], bx.head.min, bx.head.max);
+      if (th >= 0 && th < best) { best = th; hitP = q; head = true; }
+      const tb = rayBox(origin[0], origin[1], origin[2], dir[0], dir[1], dir[2], bx.body.min, bx.body.max);
+      if (tb >= 0 && tb < best) { best = tb; hitP = q; head = false; }
+    }
+    return { t: best, player: hitP, head, point: [origin[0] + dir[0] * best, origin[1] + dir[1] * best, origin[2] + dir[2] * best] };
+  }
+
+  takePickup(pk, p) {
+    pk.active = false;
+    pk.respawnAt = Date.now() + PICKUP_RESPAWN;
+    this.broadcast({ t: 'took', id: pk.id, by: p.id, type: pk.type });
+  }
+
   startMatch() {
     this.mapIndex = this.pickMap();
-    const map = generateMap(this.mapIndex);
+    const map = this.map = generateMap(this.mapIndex);
     this.pickups = map.pickups.map((p) => ({ ...p, active: true, respawnAt: 0 }));
     this.state = 'playing';
     this.endsAt = Date.now() + this.settings.time * 60000;
     for (const p of this.players.values()) {
       p.kills = 0; p.deaths = 0; p.hp = 100; p.dead = true; p.deathAt = 0; p.prot = 0;
     }
+    this.bots.onMatchStart();
   }
 
   matchInfo() {
@@ -116,22 +167,32 @@ export class RoomHost {
       this.send(conn, { t: 'error', msg: VERSION_MISMATCH });
       return false;
     }
-    if (this.players.size >= this.settings.maxPlayers) {
+    const humans = [...this.players.values()].filter((q) => !q.bot).length;
+    if (humans >= this.settings.maxPlayers) {
       this.send(conn, { t: 'error', msg: 'That room is full.' });
       return false;
     }
-    const p = {
-      id: this.nextId++, conn,
-      name: cleanName(msg.name), color: cleanColor(msg.color),
-      pos: [0, -100, 0], yaw: 0, pitch: 0, w: 'pistol', flags: 0,
-      hp: 100, dead: true, deathAt: 0, kills: 0, deaths: 0, lastDmg: 0, prot: 0,
-    };
-    this.players.set(p.id, p);
+    if (this.players.size >= this.settings.maxPlayers) this.bots.remove(); // a bot makes room for a person
+    const p = this.makePlayer(conn, cleanName(msg.name), cleanColor(msg.color));
     conn.player = p;
     if (!this.hostId) this.hostId = p.id;
+    this.players.set(p.id, p);
     this.send(conn, { t: 'joined', you: p.id, v: BUILD, ...this.matchInfo() });
     this.broadcast({ t: 'pj', p: publicPlayer(p) }, p.id);
     return true;
+  }
+
+  makePlayer(conn, name, color) {
+    return {
+      id: this.nextId++, conn, name, color,
+      pos: [0, -100, 0], yaw: 0, pitch: 0, w: 'pistol', flags: 0,
+      hp: 100, dead: true, deathAt: 0, kills: 0, deaths: 0, lastDmg: 0, prot: 0,
+    };
+  }
+
+  addPlayer(p) {
+    this.players.set(p.id, p);
+    this.broadcast({ t: 'pj', p: publicPlayer(p) }, p.id);
   }
 
   leave(conn) {
@@ -140,6 +201,7 @@ export class RoomHost {
     this.players.delete(p.id);
     conn.player = null;
     this.broadcast({ t: 'pl', id: p.id });
+    this.bots.sync();
   }
 
   applyDamage(attacker, target, dmg, weapon, head) {
@@ -147,6 +209,7 @@ export class RoomHost {
     if (Date.now() < target.prot && target !== attacker) return;
     target.hp = Math.max(0, target.hp - dmg);
     target.lastDmg = Date.now();
+    this.bots.onDamaged(target, attacker);
     this.broadcast({ t: 'dmg', id: target.id, hp: Math.round(target.hp), by: attacker.id, w: weapon });
     if (target.hp <= 0) {
       target.dead = true;
@@ -216,9 +279,7 @@ export class RoomHost {
         if (!pk || !pk.active || p.dead) return;
         const dx = p.pos[0] - pk.x, dz = p.pos[2] - pk.z, dy = p.pos[1] - pk.y;
         if (dx * dx + dz * dz > 9 || Math.abs(dy) > 3) return;
-        pk.active = false;
-        pk.respawnAt = Date.now() + PICKUP_RESPAWN;
-        this.broadcast({ t: 'took', id: pk.id, by: p.id, type: pk.type });
+        this.takePickup(pk, p);
         break;
       }
       case 'chat': {
@@ -234,6 +295,7 @@ export class RoomHost {
     const now = Date.now();
     const dt = Math.min(1, (now - this.last) / 1000);
     this.last = now;
+    this.bots.update(dt, now);
     if (this.state === 'playing') {
       for (const p of this.players.values()) {
         if (!p.dead && p.hp < 100 && now - p.lastDmg > 5000) p.hp = Math.min(100, p.hp + 12 * dt);

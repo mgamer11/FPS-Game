@@ -115,7 +115,8 @@ export class Game {
     this.resize();
 
     this.startMatch(data);
-    $('roomCode').textContent = 'CODE: ' + this.code;
+    this.local = net.isLocal;
+    $('roomCode').textContent = this.local ? 'PRACTICE' : 'CODE: ' + this.code;
     $('clickToPlay').classList.remove('hidden');
     this.lock();
     this.last = performance.now();
@@ -195,7 +196,7 @@ export class Game {
     model.position.copy(pos);
     model.visible = !info.dead;
     this.players.set(info.id, {
-      id: info.id, name: info.name, color: info.color, kills: info.kills || 0, deaths: info.deaths || 0,
+      id: info.id, name: info.name, color: info.color, bot: !!info.bot, kills: info.kills || 0, deaths: info.deaths || 0,
       hp: info.hp ?? 100, dead: !!info.dead, model, pos, target: pos.clone(), yaw: 0, tyaw: 0, pitch: 0, tpitch: 0,
       w: 'pistol', speed: 0,
     });
@@ -387,8 +388,10 @@ export class Game {
     this.menuOpen = true;
     $('settingsTitle').textContent = 'Paused';
     $('roomInfo').classList.remove('hidden');
-    const invite = location.protocol.startsWith('http') ? `${location.origin}${location.pathname}?join=${this.code}` : '';
-    $('roomInfo').innerHTML = `Room code: <b>${esc(this.code)}</b><br>Map: ${esc(MAPS[this.map.index].name)} · ${this.roomSettings.time} min · up to ${this.roomSettings.maxPlayers} players` +
+    const invite = !this.local && location.protocol.startsWith('http') ? `${location.origin}${location.pathname}?join=${this.code}` : '';
+    const about = `Map: ${esc(MAPS[this.map.index].name)} · ${this.roomSettings.time} min`;
+    if (this.local) $('roomInfo').innerHTML = `<b>PRACTICE</b><br>${about} · ${this.roomSettings.bots} bots (${esc(this.roomSettings.botSkill)})`;
+    else $('roomInfo').innerHTML = `Room code: <b>${esc(this.code)}</b><br>${about} · up to ${this.roomSettings.maxPlayers} players` +
       (invite ? `<div class="invite"><input readonly value="${esc(invite)}"><button id="copyInvite" class="btn small ghost">Copy invite link</button></div>` : '') +
       (this.net.isHost ? '<p class="host-note">You are hosting this room. Keep this tab open — if you leave, the game ends for everyone.</p>' : '');
     const copy = $('copyInvite');
@@ -1210,7 +1213,7 @@ export class Game {
   }
 
   renderScoreboard() {
-    $('scoreboard').innerHTML = `<h2>Scoreboard · ${esc(this.code)}</h2>${this.table(this.allScores())}`;
+    $('scoreboard').innerHTML = `<h2>Scoreboard · ${esc(this.local ? 'Practice' : this.code)}</h2>${this.table(this.allScores())}`;
   }
 
   showEnd(board, nextMs) {

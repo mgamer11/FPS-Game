@@ -47,6 +47,24 @@ export class Net {
 
   get isHost() { return !!this.host; }
 
+  // Practice: a room that lives only in this browser (no internet, nobody can join).
+  get isLocal() { return !!this.host && !this.peer; }
+
+  createLocal(settings, profile) {
+    this.close();
+    return this.startHost('LOCAL', settings, profile);
+  }
+
+  startHost(code, settings, profile) {
+    return new Promise((resolve) => {
+      this.host = new RoomHost(code, settings);
+      // our own player talks to the host directly, no network needed
+      this.local = { send: (m) => queueMicrotask(() => this.emit(m)) };
+      const off = this.on((m) => { if (m.t === 'joined') { off(); resolve(m); } });
+      this.host.handle(this.local, { t: 'join', v: BUILD, ...profile });
+    });
+  }
+
   on(fn) { this.handlers.add(fn); return () => this.handlers.delete(fn); }
 
   emit(msg) { for (const h of [...this.handlers]) h(msg); }
@@ -66,12 +84,8 @@ export class Net {
         const peer = new Peer(ID_PREFIX + code, peerOptions());
         this.peer = peer;
         peer.on('open', () => {
-          this.host = new RoomHost(code, settings);
-          // our own player talks to the host directly, no network needed
-          this.local = { send: (m) => queueMicrotask(() => this.emit(m)) };
           peer.on('connection', (c) => this.acceptPeer(c));
-          const off = this.on((m) => { if (m.t === 'joined') { off(); resolve(m); } });
-          this.host.handle(this.local, { t: 'join', v: BUILD, ...profile });
+          this.startHost(code, settings, profile).then(resolve);
         });
         peer.on('error', (err) => {
           if (err.type === 'unavailable-id' && tries++ < 5) {

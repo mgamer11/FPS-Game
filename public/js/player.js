@@ -65,6 +65,7 @@ export class LocalPlayer {
   }
 
   // input: {f, b, l, r, sprint, jump, dash, zoom}
+  // Bots steer with input.wish = [x, z] (a direction in the world) instead of f/b/l/r.
   update(dt, input, speedMul = 1) {
     this.dashCd = Math.max(0, this.dashCd - dt);
     const v = this.vel;
@@ -73,12 +74,14 @@ export class LocalPlayer {
     if (input.b) iz += 1;
     if (input.l) ix -= 1;
     if (input.r) ix += 1;
-    const len = Math.hypot(ix, iz);
-    if (len > 0) { ix /= len; iz /= len; }
+    const len0 = Math.hypot(ix, iz);
+    if (len0 > 0) { ix /= len0; iz /= len0; }
     const sin = Math.sin(this.yaw), cos = Math.cos(this.yaw);
-    const wx = ix * cos + iz * sin;
-    const wz = -ix * sin + iz * cos;
-    this.sprinting = !!input.sprint && input.f && !input.zoom;
+    let wx = ix * cos + iz * sin;
+    let wz = -ix * sin + iz * cos;
+    let len = len0;
+    if (input.wish) { wx = input.wish[0]; wz = input.wish[1]; len = Math.hypot(wx, wz) > 0 ? 1 : 0; }
+    this.sprinting = !!input.sprint && !!(input.f || input.wish) && !input.zoom;
     let speed = (this.sprinting ? PLAYER.sprint : PLAYER.walk) * speedMul;
     if (input.zoom) speed *= 0.65;
 

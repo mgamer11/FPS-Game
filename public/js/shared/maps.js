@@ -3,6 +3,7 @@
 import { mulberry32 } from './rng.js';
 import { VoxelWorld } from './voxel.js';
 import { PICKUP_WEAPONS } from './weapons.js';
+import { Nav } from './nav.js';
 
 export const B = {
   AIR: 0, GRASS: 1, DIRT: 2, STONE: 3, PLANK: 4, LOG: 5, LEAVES: 6, SAND: 7, SANDSTONE: 8,
@@ -693,8 +694,13 @@ export const MAPS = [
         heightFn: (x, z) => (z > 54 ? 4 : 6),
         layerFn: (x, y, z, h) => (y === h - 1 ? (z > 54 ? B.WATER : B.CONCRETE) : B.STONE),
       });
+      // a step along the shore so anyone who falls in the water can climb back out
+      b.fill(1, 4, 55, SIZE - 2, 4, 55, B.STONEBRICK);
       // piers
       for (const px of [10, 30, 50]) b.fill(px, 5, 55, px + 3, 5, 68, B.DARKPLANK);
+      // gangways from the piers onto the boats
+      b.fill(14, 5, 60, 17, 5, 60, B.PLANK);
+      b.fill(46, 5, 60, 49, 5, 60, B.PLANK);
       b.reserve(0, 54, SIZE - 1, SIZE - 1);
       // boats
       for (const bx of [18, 40]) {
@@ -808,6 +814,21 @@ export function generateMap(index) {
       if (rng() < 0.6) break;
     }
   }
+  // Only keep spots that connect to the main part of the map: nobody should spawn in a
+  // sealed attic, and no gun should sit where it can't be reached.
+  const nav = new Nav(world);
+  const nodeOf = (c) => nav.node(c[0] - 0.5, c[1], c[2] - 0.5);
+  let anchor = -1, fromMain = null;
+  for (const c of candidates) {
+    const m = nav.reach(nodeOf(c));
+    let n = 0;
+    for (let i = 0; i < m.length; i++) n += m[i];
+    if (n > nav.count * 0.5) { anchor = nodeOf(c); fromMain = m; break; }
+  }
+  const toMain = nav.reach(anchor, true);
+  const canLeave = candidates.filter((c) => anchor < 0 || toMain[nodeOf(c)]);
+  const twoWay = canLeave.filter((c) => anchor < 0 || fromMain[nodeOf(c)]);
+
   const spread = (list, n, minD) => {
     const out = [];
     for (const p of list) {
@@ -816,8 +837,8 @@ export function generateMap(index) {
     }
     return out;
   };
-  const spawns = spread(candidates, 40, 6);
-  const shuffled = shuffle(candidates, rng);
+  const spawns = spread(canLeave, 40, 6);
+  const shuffled = shuffle(twoWay, rng);
   const pickSpots = spread(shuffled, 16, 9);
   const order = [];
   while (order.length < pickSpots.length) {
@@ -825,7 +846,7 @@ export function generateMap(index) {
     order.push(...bag);
   }
   const pickups = pickSpots.map((p, i) => ({ id: i, type: order[i], x: p[0], y: p[1], z: p[2] }));
-  const result = { world, def, spawns, pickups, index };
+  const result = { world, def, spawns, pickups, index, nav };
   cache.set(index, result);
   return result;
 }
