@@ -222,7 +222,7 @@ export class Game {
     model.visible = !info.dead;
     this.players.set(info.id, {
       id: info.id, name: info.name, color, team: info.team ?? -1, bot: !!info.bot, kills: info.kills || 0, deaths: info.deaths || 0,
-      hp: info.hp ?? 100, dead: !!info.dead, model, pos, target: pos.clone(), yaw: 0, tyaw: 0, pitch: 0, tpitch: 0,
+      hp: info.hp ?? 100, dead: !!info.dead, model, tag, pos, target: pos.clone(), yaw: 0, tyaw: 0, pitch: 0, tpitch: 0,
       w: 'pistol', speed: 0,
     });
   }
@@ -509,6 +509,7 @@ export class Game {
             this.hp = 100;
             this.player.pos.set(...m.p);
             this.player.vel.set(0, 0, 0);
+            this.player.stand();
             // face the middle of the map
             const c = this.world.sx / 2;
             this.player.yaw = Math.atan2(-(c - m.p[0]), -(c - m.p[2]));
@@ -655,6 +656,8 @@ export class Game {
   // ------------------------------------------------------------------ weapons
   get weapon() { return this.slots[this.slot]; }
   get zoomed() { return this.zoomHeld && this.alive && !this.reloading; }
+  // crouching still (not sliding) steadies your aim
+  get steady() { return this.player.crouching && this.player.slideT <= 0; }
 
   resetLoadout() {
     this.slots = new Array(HOTBAR_SIZE).fill(null);
@@ -754,6 +757,7 @@ export class Game {
     const hs = Math.hypot(this.player.vel.x, this.player.vel.z);
     if (hs > 1) spread *= 1.5;
     if (!this.player.onGround) spread *= 1.8;
+    if (this.steady) spread *= 0.6;
     spread += this.bloom;
     if (w.auto) this.bloom = Math.min(this.bloom + w.spread * 0.18, w.spread * 1.2);
 
@@ -808,7 +812,7 @@ export class Game {
     let hitP = null, head = false;
     for (const p of this.players.values()) {
       if (p.dead || !p.model.visible || !this.isEnemy(p)) continue; // shots pass through teammates
-      const bx = playerBoxes(p.pos.x, p.pos.y, p.pos.z);
+      const bx = playerBoxes(p.pos.x, p.pos.y, p.pos.z, !!(p.flags & 4));
       const th = rayBox(origin.x, origin.y, origin.z, dir.x, dir.y, dir.z, bx.head.min, bx.head.max);
       if (th >= 0 && th < best) { best = th; hitP = p; head = true; }
       const tb = rayBox(origin.x, origin.y, origin.z, dir.x, dir.y, dir.z, bx.body.min, bx.body.max);
@@ -844,7 +848,7 @@ export class Game {
       if (r.mine) {
         for (const p of this.players.values()) {
           if (p.dead || !this.isEnemy(p)) continue;
-          const bx = playerBoxes(p.pos.x, p.pos.y, p.pos.z);
+          const bx = playerBoxes(p.pos.x, p.pos.y, p.pos.z, !!(p.flags & 4));
           const t = rayBox(r.pos.x, r.pos.y, r.pos.z, r.dir.x, r.dir.y, r.dir.z, [bx.body.min[0] - 0.1, bx.body.min[1], bx.body.min[2] - 0.1], [bx.head.max[0] + 0.1, bx.head.max[1], bx.head.max[2] + 0.1]);
           if (t >= 0 && t <= step && (hitT === null || t < hitT)) hitT = t;
         }
@@ -1138,12 +1142,12 @@ export class Game {
     const canMove = this.alive && this.locked;
     const input = canMove ? {
       f: this.held('forward'), b: this.held('back'), l: this.held('left'), r: this.held('right'),
-      sprint: this.held('sprint'), jump: this.held('jump'), dash: this.held('dash'), zoom: this.zoomed,
+      sprint: this.held('sprint'), jump: this.held('jump'), dash: this.held('dash'), crouch: this.held('crouch'), zoom: this.zoomed,
     } : {};
 
     if (this.alive) {
       pl.update(dt, input, WEAPONS[this.weapon.id].moveMul || 1);
-      for (const e of pl.events) { if (e === 'dash') sfx.dash(); else if (e === 'jump') sfx.jump(); else if (e === 'land') sfx.land(); }
+      for (const e of pl.events) { if (e === 'dash') sfx.dash(); else if (e === 'jump') sfx.jump(); else if (e === 'land') sfx.land(); else if (e === 'slide') sfx.slide(); }
       pl.events.length = 0;
       this.updateCamera(dt);
       this.updateWeapon(now, dt);
@@ -1178,6 +1182,7 @@ export class Game {
     let targetFov = this.zoomed ? (w.scope ? w.zoomFov : settings.fov * (w.zoomFov / 80)) : settings.fov;
     if (pl.sprinting && !this.zoomed) targetFov += 6;
     if (pl.dashT > 0) targetFov += 12;
+    if (pl.slideT > 0) targetFov += 8;
     this.camera.fov += (targetFov - this.camera.fov) * Math.min(1, dt * 14);
     this.camera.updateProjectionMatrix();
     $('scopeOverlay').classList.toggle('hidden', !(w.scope && this.zoomed && this.vm.zoom > 0.8));
@@ -1195,6 +1200,10 @@ export class Game {
       p.speed += (sp - p.speed) * Math.min(1, dt * 10);
       p.model.position.copy(p.pos);
       p.model.rotation.y = p.yaw;
+      // crouching players are squashed down (their name tag keeps its shape)
+      p.crouch = (p.crouch || 0) + ((p.flags & 4 ? 1 : 0) - (p.crouch || 0)) * Math.min(1, dt * 12);
+      p.model.scale.y = 1 - 0.3 * p.crouch;
+      p.tag.scale.y = 0.4 / p.model.scale.y;
       poseCharacter(p.model, p.pitch, p.speed, dt);
     }
 
@@ -1211,7 +1220,7 @@ export class Game {
 
     if (now - this.lastSend > SEND_MS && this.alive) {
       this.lastSend = now;
-      const f = (pl.sprinting ? 1 : 0) | (this.zoomed ? 2 : 0);
+      const f = (pl.sprinting ? 1 : 0) | (this.zoomed ? 2 : 0) | (pl.crouching ? 4 : 0);
       this.net.send({ t: 's', p: [+pl.pos.x.toFixed(2), +pl.pos.y.toFixed(2), +pl.pos.z.toFixed(2)], y: +pl.yaw.toFixed(3), x: +pl.pitch.toFixed(3), w: this.weapon.id, f });
     }
     this.updateHud(now);
@@ -1222,7 +1231,7 @@ export class Game {
     this.recoil = Math.max(0, this.recoil - dt * (this.mouseDown ? 0.12 : 0.6));
     this.shake = Math.max(0, this.shake - dt * 2.5);
     if (this.alive) {
-      this.camera.position.set(pl.pos.x, pl.pos.y + PLAYER.eye, pl.pos.z);
+      this.camera.position.set(pl.pos.x, pl.pos.y + pl.eye, pl.pos.z);
       this.camera.rotation.set(pl.pitch + this.recoil + (Math.random() - 0.5) * this.shake * 0.04, pl.yaw + (Math.random() - 0.5) * this.shake * 0.04, 0);
     } else {
       // death cam: rise up and look at whoever got you
@@ -1289,7 +1298,7 @@ export class Game {
 
     // crosshair spread
     const hs = Math.hypot(this.player.vel.x, this.player.vel.z);
-    const gap = 5 + (w.spread * (this.zoomed ? w.zoomSpread : 1) * (hs > 1 ? 1.5 : 1) * (this.player.onGround ? 1 : 1.8) + this.bloom) * 400;
+    const gap = 5 + (w.spread * (this.zoomed ? w.zoomSpread : 1) * (hs > 1 ? 1.5 : 1) * (this.player.onGround ? 1 : 1.8) * (this.steady ? 0.6 : 1) + this.bloom) * 400;
     $('crosshair').style.setProperty('--gap', Math.min(60, gap).toFixed(1) + 'px');
     $('crosshair').classList.toggle('hidden', (w.scope && this.zoomed) || !this.alive);
 

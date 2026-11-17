@@ -144,7 +144,7 @@ export class RoomHost {
     let best = wh ? wh.t : range, hitP = null, head = false;
     for (const q of this.players.values()) {
       if (q === shooter || q.dead) continue;
-      const bx = playerBoxes(q.pos[0], q.pos[1], q.pos[2]);
+      const bx = playerBoxes(q.pos[0], q.pos[1], q.pos[2], !!(q.flags & 4));
       const th = rayBox(origin[0], origin[1], origin[2], dir[0], dir[1], dir[2], bx.head.min, bx.head.max);
       if (th >= 0 && th < best) { best = th; hitP = q; head = true; }
       const tb = rayBox(origin[0], origin[1], origin[2], dir[0], dir[1], dir[2], bx.body.min, bx.body.max);

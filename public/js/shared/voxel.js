@@ -83,8 +83,12 @@ export function rayBox(ox, oy, oz, dx, dy, dz, min, max) {
   return tmin >= 0 ? tmin : 0;
 }
 
-// Player hitboxes from a feet position.
-export function playerBoxes(x, y, z) {
+// Player hitboxes from a feet position (a crouching player is a smaller target).
+export function playerBoxes(x, y, z, crouch = false) {
+  if (crouch) return {
+    head: { min: [x - 0.28, y + 0.9, z - 0.28], max: [x + 0.28, y + 1.36, z + 0.28] },
+    body: { min: [x - 0.36, y, z - 0.36], max: [x + 0.36, y + 0.9, z + 0.36] },
+  };
   return {
     head: { min: [x - 0.28, y + 1.4, z - 0.28], max: [x + 0.28, y + 1.95, z + 0.28] },
     body: { min: [x - 0.36, y, z - 0.36], max: [x + 0.36, y + 1.4, z + 0.36] },

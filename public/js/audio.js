@@ -79,6 +79,7 @@ export const sfx = {
   throw: () => noiseBurst(900, 0.18, 0.2, 0.6, 'bandpass'),
   bounce: (distance = 0) => tone(500, 0.04, 0.12 * Math.max(0, 1 - distance / 30), 'square', 300),
   pickup: () => { tone(600, 0.08, 0.2, 'square'); setTimeout(() => tone(900, 0.1, 0.2, 'square'), 70); },
+  slide: () => noiseBurst(500, 0.45, 0.22, 0.7, 'bandpass'),
   dash: () => noiseBurst(1200, 0.25, 0.3, 0.5, 'bandpass'),
   jump: () => tone(220, 0.08, 0.06, 'sine', 330),
   land: () => noiseBurst(300, 0.08, 0.12),

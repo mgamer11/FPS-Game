@@ -111,7 +111,7 @@ export class BotManager {
   canSee(p, q, now) {
     const b = p.bot, body = b.body;
     const ox = body.pos.x, oy = body.pos.y + PLAYER.eye, oz = body.pos.z;
-    const dx = q.pos[0] - ox, dy = q.pos[1] + 1.0 - oy, dz = q.pos[2] - oz;
+    const dx = q.pos[0] - ox, dy = q.pos[1] + (q.flags & 4 ? 0.6 : 1.0) - oy, dz = q.pos[2] - oz;
     const dist = Math.hypot(dx, dy, dz);
     if (dist > b.skill.view || dist < 0.01) return dist < 0.01;
     const alerted = b.alert === q.id && now - b.alertAt < 3000;
@@ -244,7 +244,8 @@ export class BotManager {
     let canFire = false;
     if (t) {
       const ex = t.pos[0] - px, ez = t.pos[2] - pz;
-      const ey = t.pos[1] + (b.aimHead ? 1.62 : 1.0) - (py + PLAYER.eye);
+      const low = t.flags & 4; // crouching target
+      const ey = t.pos[1] + (b.aimHead ? (low ? 1.1 : 1.62) : (low ? 0.55 : 1.0)) - (py + PLAYER.eye);
       const hd = Math.hypot(ex, ez);
       wantYaw = Math.atan2(-ex, -ez);
       wantPitch = Math.atan2(ey, hd);

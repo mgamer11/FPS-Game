@@ -251,7 +251,7 @@ function renderControls() {
   const k = (id) => `<kbd>${keyLabel(settings.keys[id])}</kbd>`;
   const rows = [
     [k('forward') + k('left') + k('back') + k('right'), 'Move'],
-    [k('sprint'), 'Sprint (hold)'], [k('jump'), 'Jump'], [k('dash'), 'Dash'],
+    [k('sprint'), 'Sprint (hold)'], [k('jump'), 'Jump'], [k('dash'), 'Dash'], [k('crouch'), 'Crouch / slide'],
     [k('shoot'), 'Shoot'], [k('aim'), 'Zoom / Aim'], [k('reload'), 'Reload'], [k('grenade'), 'Throw grenade'],
     [k('slot1') + '–' + k('slot10'), '/ Wheel Switch gun (10 slots)'], [k('prevWeapon'), 'Previous gun'],
     [k('scoreboard'), 'Scoreboard'], [k('chat'), 'Chat'], ['<kbd>Esc</kbd>', 'Settings'],

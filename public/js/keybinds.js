@@ -8,6 +8,7 @@ export const ACTIONS = [
   { id: 'jump', label: 'Jump', def: 'Space' },
   { id: 'sprint', label: 'Sprint (hold)', def: 'ShiftLeft' },
   { id: 'dash', label: 'Dash', def: 'KeyX' },
+  { id: 'crouch', label: 'Crouch / slide', def: 'KeyC' },
   { id: 'shoot', label: 'Shoot', def: 'Mouse0' },
   { id: 'aim', label: 'Zoom / aim', def: 'Mouse2' },
   { id: 'reload', label: 'Reload', def: 'KeyR' },

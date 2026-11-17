@@ -5,6 +5,8 @@ export const PLAYER = {
   half: 0.3, height: 1.8, eye: 1.6,
   walk: 5.6, sprint: 8.8, jump: 8.6, gravity: 26,
   dashSpeed: 24, dashTime: 0.17, dashCooldown: 2.2,
+  crouchHeight: 1.2, crouchEye: 1.0, crouchSpeed: 0.5,
+  slideSpeed: 13, slideTime: 0.65, slideCooldown: 1.3,
 };
 
 export class LocalPlayer {
@@ -18,7 +20,24 @@ export class LocalPlayer {
     this.dashCd = 0;
     this.dashT = 0;
     this.sprinting = false;
+    this.height = PLAYER.height;
+    this.crouching = false;
+    this.crouchAmt = 0; // 0 standing .. 1 fully crouched (smoothed, for the camera)
+    this.slideT = 0;
+    this.slideCd = 0;
     this.events = [];
+  }
+
+  // Back on your feet (used when respawning).
+  stand() {
+    this.height = PLAYER.height;
+    this.crouching = false;
+    this.crouchAmt = 0;
+    this.slideT = 0;
+  }
+
+  get eye() {
+    return PLAYER.eye - (PLAYER.eye - PLAYER.crouchEye) * this.crouchAmt;
   }
 
   forward(out = new THREE.Vector3()) {
@@ -29,7 +48,7 @@ export class LocalPlayer {
   collides(x, y, z) {
     const h = PLAYER.half, w = this.world;
     const x0 = Math.floor(x - h), x1 = Math.floor(x + h - 1e-6);
-    const y0 = Math.floor(y), y1 = Math.floor(y + PLAYER.height - 1e-6);
+    const y0 = Math.floor(y), y1 = Math.floor(y + this.height - 1e-6);
     const z0 = Math.floor(z - h), z1 = Math.floor(z + h - 1e-6);
     for (let yy = y0; yy <= y1; yy++)
       for (let zz = z0; zz <= z1; zz++)
@@ -52,7 +71,7 @@ export class LocalPlayer {
       }
       // snap flush against the block we hit
       if (axis === 0) p.x = sd > 0 ? Math.floor(nx + PLAYER.half) - PLAYER.half - 1e-4 : Math.floor(nx - PLAYER.half) + 1 + PLAYER.half + 1e-4;
-      if (axis === 1) p.y = sd > 0 ? Math.floor(ny + PLAYER.height) - PLAYER.height - 1e-4 : Math.floor(ny) + 1;
+      if (axis === 1) p.y = sd > 0 ? Math.floor(ny + this.height) - this.height - 1e-4 : Math.floor(ny) + 1;
       if (axis === 2) p.z = sd > 0 ? Math.floor(nz + PLAYER.half) - PLAYER.half - 1e-4 : Math.floor(nz - PLAYER.half) + 1 + PLAYER.half + 1e-4;
       if (this.collides(p.x, p.y, p.z)) {
         // safety: undo if the snap is invalid
@@ -64,7 +83,7 @@ export class LocalPlayer {
     return false;
   }
 
-  // input: {f, b, l, r, sprint, jump, dash, zoom}
+  // input: {f, b, l, r, sprint, jump, dash, zoom, crouch}
   // Bots steer with input.wish = [x, z] (a direction in the world) instead of f/b/l/r.
   update(dt, input, speedMul = 1) {
     this.dashCd = Math.max(0, this.dashCd - dt);
@@ -81,9 +100,32 @@ export class LocalPlayer {
     let wz = -ix * sin + iz * cos;
     let len = len0;
     if (input.wish) { wx = input.wish[0]; wz = input.wish[1]; len = Math.hypot(wx, wz) > 0 ? 1 : 0; }
-    this.sprinting = !!input.sprint && !!(input.f || input.wish) && !input.zoom;
+    // crouch (hold) and slide (start crouching while sprinting)
+    this.slideCd = Math.max(0, this.slideCd - dt);
+    const wantCrouch = !!input.crouch || this.slideT > 0;
+    if (wantCrouch && !this.crouching) {
+      const hs = Math.hypot(v.x, v.z);
+      if (this.sprinting && this.onGround && this.slideCd <= 0 && hs > PLAYER.walk) {
+        v.x *= PLAYER.slideSpeed / hs;
+        v.z *= PLAYER.slideSpeed / hs;
+        this.slideT = PLAYER.slideTime;
+        this.slideCd = PLAYER.slideCooldown;
+        this.events.push('slide');
+      }
+      this.crouching = true;
+      this.height = PLAYER.crouchHeight;
+    } else if (!wantCrouch && this.crouching) {
+      // only stand up where there is headroom
+      this.height = PLAYER.height;
+      if (this.collides(this.pos.x, this.pos.y, this.pos.z)) this.height = PLAYER.crouchHeight;
+      else this.crouching = false;
+    }
+    this.crouchAmt += ((this.crouching ? 1 : 0) - this.crouchAmt) * Math.min(1, dt * 12);
+
+    this.sprinting = !!input.sprint && !!(input.f || input.wish) && !input.zoom && !this.crouching;
     let speed = (this.sprinting ? PLAYER.sprint : PLAYER.walk) * speedMul;
     if (input.zoom) speed *= 0.65;
+    if (this.crouching) speed *= PLAYER.crouchSpeed;
 
     if (input.dash && this.dashCd <= 0) {
       const dir = this.forward(new THREE.Vector3());
@@ -98,7 +140,15 @@ export class LocalPlayer {
 
     if (this.dashT > 0) {
       this.dashT -= dt;
+      this.slideT = 0;
       if (this.dashT <= 0) v.multiplyScalar(0.35);
+    } else if (this.slideT > 0) {
+      // sliding: keep going the way you were, slowing down
+      this.slideT -= dt;
+      const keep = Math.max(0, 1 - 0.9 * dt);
+      v.x *= keep;
+      v.z *= keep;
+      v.y -= PLAYER.gravity * dt;
     } else {
       const accel = this.onGround ? 14 : 3.5;
       const k = Math.min(1, accel * dt);
@@ -112,6 +162,7 @@ export class LocalPlayer {
     }
 
     if (input.jump && this.onGround) {
+      this.slideT = 0; // a jump out of a slide keeps its speed
       v.y = PLAYER.jump;
       this.onGround = false;
       this.events.push('jump');
