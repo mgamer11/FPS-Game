@@ -3,6 +3,7 @@
 // with a send(msg) method.
 import { MAPS, generateMap, mapHash } from './shared/maps.js';
 import { WEAPONS, maxHitDamage } from './shared/weapons.js';
+import { MODES } from './shared/modes.js';
 import { rayBox, playerBoxes } from './shared/voxel.js';
 import { navFor } from './shared/nav.js';
 import { BotManager, BOT_SKILLS, MAX_BOTS } from './bots.js';
@@ -31,7 +32,7 @@ function cleanColor(c) {
 }
 
 function publicPlayer(p) {
-  return { id: p.id, name: p.name, color: p.color, kills: p.kills, deaths: p.deaths, hp: p.hp, dead: p.dead, pos: p.pos, bot: !!p.bot };
+  return { id: p.id, name: p.name, color: p.color, kills: p.kills, deaths: p.deaths, hp: p.hp, dead: p.dead, pos: p.pos, bot: !!p.bot, team: p.team };
 }
 
 // A timer that keeps ticking even when the browser tab is in the background
@@ -58,7 +59,9 @@ export class RoomHost {
     const bots = Math.min(MAX_BOTS, Math.max(0, Math.floor(Number(s.bots)) || 0));
     const botSkill = s.botSkill in BOT_SKILLS ? s.botSkill : 'normal';
     this.code = code;
-    this.settings = { time, maxPlayers, map, bots, botSkill };
+    const mode = s.mode in MODES ? s.mode : 'ffa';
+    this.settings = { time, maxPlayers, map, bots, botSkill, mode };
+    this.teamScore = [0, 0];
     this.players = new Map();
     this.nextId = 1;
     this.mapIndex = -1;
@@ -95,8 +98,27 @@ export class RoomHost {
 
   get nav() { return navFor(this.map); }
 
-  // In free-for-all everyone else is an enemy.
-  isEnemy(a, b) { return a !== b; }
+  get teams() { return this.settings.mode === 'tdm'; }
+
+  // In free-for-all everyone else is an enemy; in team games only the other team is.
+  isEnemy(a, b) { return a !== b && (!this.teams || a.team !== b.team); }
+
+  // The team that needs a player most (-1 when the mode has no teams).
+  smallerTeam() {
+    if (!this.teams) return -1;
+    const n = [0, 0];
+    for (const p of this.players.values()) if (p.team >= 0) n[p.team]++;
+    if (n[0] !== n[1]) return n[0] < n[1] ? 0 : 1;
+    if (this.teamScore[0] !== this.teamScore[1]) return this.teamScore[0] < this.teamScore[1] ? 0 : 1;
+    return Math.random() < 0.5 ? 0 : 1;
+  }
+
+  // New match: deal everyone into two even teams, people first so they are split fairly.
+  dealTeams() {
+    const list = [...this.players.values()].sort((a, b) => (a.bot ? 1 : 0) - (b.bot ? 1 : 0) || Math.random() - 0.5);
+    const first = Math.random() < 0.5 ? 0 : 1;
+    list.forEach((p, i) => { p.team = this.teams ? (i + first) % 2 : -1; });
+  }
 
   // A spawn point away from the player's enemies.
   chooseSpawn(p) {
@@ -142,6 +164,8 @@ export class RoomHost {
     this.pickups = map.pickups.map((p) => ({ ...p, active: true, respawnAt: 0 }));
     this.state = 'playing';
     this.endsAt = Date.now() + this.settings.time * 60000;
+    this.teamScore = [0, 0];
+    this.dealTeams();
     for (const p of this.players.values()) {
       p.kills = 0; p.deaths = 0; p.hp = 100; p.dead = true; p.deathAt = 0; p.prot = 0;
     }
@@ -154,6 +178,7 @@ export class RoomHost {
       settings: this.settings,
       mapIndex: this.mapIndex,
       mapHash: mapHash(this.mapIndex),
+      teamScore: this.teamScore,
       state: this.state,
       timeLeft: Math.max(0, (this.state === 'playing' ? this.endsAt : this.nextMatchAt) - Date.now()),
       players: [...this.players.values()].map(publicPlayer),
@@ -184,7 +209,7 @@ export class RoomHost {
 
   makePlayer(conn, name, color) {
     return {
-      id: this.nextId++, conn, name, color,
+      id: this.nextId++, conn, name, color, team: this.smallerTeam(),
       pos: [0, -100, 0], yaw: 0, pitch: 0, w: 'pistol', flags: 0,
       hp: 100, dead: true, deathAt: 0, kills: 0, deaths: 0, lastDmg: 0, prot: 0,
     };
@@ -206,6 +231,7 @@ export class RoomHost {
 
   applyDamage(attacker, target, dmg, weapon, head) {
     if (target.dead || this.state !== 'playing') return;
+    if (target !== attacker && !this.isEnemy(attacker, target)) return; // no friendly fire
     if (Date.now() < target.prot && target !== attacker) return;
     target.hp = Math.max(0, target.hp - dmg);
     target.lastDmg = Date.now();
@@ -215,7 +241,10 @@ export class RoomHost {
       target.dead = true;
       target.deathAt = Date.now();
       target.deaths++;
-      if (attacker !== target) attacker.kills++;
+      if (attacker !== target) {
+        attacker.kills++;
+        if (attacker.team >= 0) this.teamScore[attacker.team]++;
+      }
       this.broadcast({ t: 'kill', k: attacker.id, v: target.id, w: weapon, head: !!head });
     }
   }
@@ -310,7 +339,7 @@ export class RoomHost {
         this.state = 'ended';
         this.nextMatchAt = now + END_SCREEN_MS;
         const board = [...this.players.values()].map(publicPlayer).sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
-        this.broadcast({ t: 'end', board, next: END_SCREEN_MS });
+        this.broadcast({ t: 'end', board, next: END_SCREEN_MS, teamScore: this.teamScore });
       }
     } else if (this.state === 'ended' && now >= this.nextMatchAt) {
       this.startMatch();
@@ -320,6 +349,6 @@ export class RoomHost {
     for (const p of this.players.values()) {
       ps.push([p.id, +p.pos[0].toFixed(2), +p.pos[1].toFixed(2), +p.pos[2].toFixed(2), +p.yaw.toFixed(3), +p.pitch.toFixed(3), p.w, Math.ceil(p.hp), p.dead ? 1 : 0, p.flags, p.kills, p.deaths]);
     }
-    this.broadcast({ t: 'snap', ps });
+    this.broadcast({ t: 'snap', ps, ts: this.teamScore });
   }
 }

@@ -160,3 +160,9 @@ table.sb tr.me td { color: #ffd23f; }
 .kb-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; }
 .kb-footer .btn.small { margin-top: 0; white-space: nowrap; }
 @media (max-width: 560px) { .kb-list { grid-template-columns: 1fr; } }
+
+/* team games */
+#teamScore { margin-top: 5px; display: flex; gap: 4px; justify-content: center; font-family: 'Lilita One', sans-serif; font-size: 17px; }
+#teamScore .ts { padding: 1px 12px; border-radius: 8px; opacity: .8; border: 2px solid transparent; }
+#teamScore .ts.mine { opacity: 1; border-color: #fff; }
+.team-head { font-family: 'Lilita One', sans-serif; font-weight: 400; margin: 10px 0 4px; font-size: 20px; text-align: left; }

@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { generateMap, mapHash, MAPS, B } from './shared/maps.js';
 import { WEAPONS, HOTBAR_SIZE } from './shared/weapons.js';
+import { MODES, TEAMS } from './shared/modes.js';
 import { rayBox, playerBoxes } from './shared/voxel.js';
 import { buildWorldMeshes } from './worldmesh.js';
 import { buildCharacter, buildGun, setCharacterWeapon, poseCharacter, makeNameTag, gunIcon } from './models.js';
@@ -129,6 +130,9 @@ export class Game {
     $('loading').classList.remove('hidden');
     $('endScreen').classList.add('hidden');
     this.state = data.state;
+    this.roomSettings = data.settings;
+    this.mode = data.settings.mode || 'ffa';
+    this.teamScore = data.teamScore || [0, 0];
     this.timerEnd = performance.now() + data.timeLeft;
     this.loadMap(data.mapIndex);
     if (data.mapHash && mapHash(data.mapIndex) !== data.mapHash) {
@@ -136,11 +140,16 @@ export class Game {
       this.notice('Warning: your map differs from the server. Try refreshing the page.');
     }
 
+    const mine = data.players.find((p) => p.id === this.myId);
+    this.myStats = { kills: mine?.kills || 0, deaths: mine?.deaths || 0 };
+    this.myTeam = mine?.team ?? -1;
     for (const p of this.players.values()) this.scene.remove(p.model);
     this.players.clear();
     for (const p of data.players) if (p.id !== this.myId) this.addPlayer(p);
-    const mine = data.players.find((p) => p.id === this.myId);
-    this.myStats = { kills: mine?.kills || 0, deaths: mine?.deaths || 0 };
+    this.me.color = this.colorOf({ color: this.me.baseColor, team: this.myTeam });
+    this.vm.id = null; // rebuild the arm in the right color
+    $('teamScore').classList.toggle('hidden', this.mode !== 'tdm');
+    if (this.mode === 'tdm') this.notice(`You are on the ${TEAMS[this.myTeam].name} team`);
 
     for (const pk of this.pickups.values()) this.scene.remove(pk.mesh);
     this.pickups.clear();
@@ -185,10 +194,22 @@ export class Game {
     }
   }
 
+  // In team games everyone wears their team's color.
+  colorOf(info) {
+    return this.mode === 'tdm' && info.team >= 0 ? TEAMS[info.team].color : info.color;
+  }
+
+  isEnemy(p) {
+    return this.mode !== 'tdm' || p.team !== this.myTeam;
+  }
+
   addPlayer(info) {
     if (this.players.has(info.id)) return;
-    const model = buildCharacter(info.color, 'pistol');
-    const tag = makeNameTag(info.name, info.color);
+    const color = this.colorOf(info);
+    const model = buildCharacter(color, 'pistol');
+    const tag = makeNameTag(info.name, color);
+    // you can always see where your teammates are
+    if (this.mode === 'tdm' && info.team === this.myTeam) tag.material.depthTest = false;
     tag.position.y = 2.3;
     model.add(tag);
     this.scene.add(model);
@@ -196,7 +217,7 @@ export class Game {
     model.position.copy(pos);
     model.visible = !info.dead;
     this.players.set(info.id, {
-      id: info.id, name: info.name, color: info.color, bot: !!info.bot, kills: info.kills || 0, deaths: info.deaths || 0,
+      id: info.id, name: info.name, color, team: info.team ?? -1, bot: !!info.bot, kills: info.kills || 0, deaths: info.deaths || 0,
       hp: info.hp ?? 100, dead: !!info.dead, model, pos, target: pos.clone(), yaw: 0, tyaw: 0, pitch: 0, tpitch: 0,
       w: 'pistol', speed: 0,
     });
@@ -446,10 +467,10 @@ export class Game {
   // ------------------------------------------------------------------ network
   onMessage(m) {
     switch (m.t) {
-      case 'snap': this.onSnap(m.ps); break;
+      case 'snap': this.onSnap(m.ps); if (m.ts) this.teamScore = m.ts; break;
       case 'pj':
         this.addPlayer(m.p);
-        this.feed(`<b style="color:${esc(m.p.color)}">${esc(m.p.name)}</b> joined`);
+        this.feed(`<b style="color:${esc(this.colorOf(m.p))}">${esc(m.p.name)}</b> joined`);
         break;
       case 'pl': {
         const p = this.players.get(m.id);
@@ -509,6 +530,7 @@ export class Game {
       }
       case 'end':
         this.state = 'ended';
+        if (m.teamScore) this.teamScore = m.teamScore;
         this.showEnd(m.board, m.next);
         break;
       case 'match':
@@ -767,7 +789,7 @@ export class Game {
     let best = wh ? wh.t : range;
     let hitP = null, head = false;
     for (const p of this.players.values()) {
-      if (p.dead || !p.model.visible) continue;
+      if (p.dead || !p.model.visible || !this.isEnemy(p)) continue; // shots pass through teammates
       const bx = playerBoxes(p.pos.x, p.pos.y, p.pos.z);
       const th = rayBox(origin.x, origin.y, origin.z, dir.x, dir.y, dir.z, bx.head.min, bx.head.max);
       if (th >= 0 && th < best) { best = th; hitP = p; head = true; }
@@ -803,7 +825,7 @@ export class Game {
       if (wh) hitT = wh.t;
       if (r.mine) {
         for (const p of this.players.values()) {
-          if (p.dead) continue;
+          if (p.dead || !this.isEnemy(p)) continue;
           const bx = playerBoxes(p.pos.x, p.pos.y, p.pos.z);
           const t = rayBox(r.pos.x, r.pos.y, r.pos.z, r.dir.x, r.dir.y, r.dir.z, [bx.body.min[0] - 0.1, bx.body.min[1], bx.body.min[2] - 0.1], [bx.head.max[0] + 0.1, bx.head.max[1], bx.head.max[2] + 0.1]);
           if (t >= 0 && t <= step && (hitT === null || t < hitT)) hitT = t;
@@ -839,7 +861,7 @@ export class Game {
     this.shake = Math.max(this.shake, Math.max(0, 1 - d / 20));
     if (!mine) return;
     const w = WEAPONS.rocket;
-    const targets = [...this.players.values()].filter((p) => !p.dead).map((p) => ({ id: p.id, c: p.pos.clone().add(new THREE.Vector3(0, 0.9, 0)) }));
+    const targets = [...this.players.values()].filter((p) => !p.dead && this.isEnemy(p)).map((p) => ({ id: p.id, c: p.pos.clone().add(new THREE.Vector3(0, 0.9, 0)) }));
     if (this.alive) targets.push({ id: this.myId, c: this.player.pos.clone().add(new THREE.Vector3(0, 0.9, 0)), self: true });
     for (const t of targets) {
       const dist = t.c.distanceTo(pos);
@@ -1124,7 +1146,7 @@ export class Game {
 
   chooseSpawn() {
     const spawns = this.map.spawns;
-    const enemies = [...this.players.values()].filter((p) => !p.dead);
+    const enemies = [...this.players.values()].filter((p) => !p.dead && this.isEnemy(p));
     let best = spawns[0], bestScore = -Infinity;
     for (let i = 0; i < 10; i++) {
       const s = spawns[Math.floor(Math.random() * spawns.length)];
@@ -1182,6 +1204,11 @@ export class Game {
     const m = Math.floor(left / 60000), s = Math.floor((left % 60000) / 1000);
     this.set('timer', this.state === 'playing' ? `${m}:${String(s).padStart(2, '0')}` : 'MATCH OVER');
 
+    if (this.mode === 'tdm') {
+      const cell = (i) => `<span class="ts${i === this.myTeam ? ' mine' : ''}" style="background:${TEAMS[i].color}">${TEAMS[i].name.toUpperCase()} ${this.teamScore[i]}</span>`;
+      this.set('teamScore', cell(0) + cell(1), 'innerHTML');
+    }
+
     // death screen
     if (!this.alive && this.state === 'playing') {
       const r = Math.max(0, RESPAWN_MS - (now - this.deathAt));
@@ -1201,8 +1228,8 @@ export class Game {
   }
 
   allScores() {
-    const list = [...this.players.values()].map((p) => ({ id: p.id, name: p.name, color: p.color, kills: p.kills, deaths: p.deaths }));
-    list.push({ id: this.myId, name: this.me.name, color: this.me.color, kills: this.myStats.kills, deaths: this.myStats.deaths });
+    const list = [...this.players.values()].map((p) => ({ id: p.id, name: p.name, color: p.color, team: p.team, kills: p.kills, deaths: p.deaths }));
+    list.push({ id: this.myId, name: this.me.name, color: this.me.color, team: this.myTeam, kills: this.myStats.kills, deaths: this.myStats.deaths });
     return list.sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
   }
 
@@ -1212,15 +1239,28 @@ export class Game {
       .join('')}</table>`;
   }
 
+  // One table in free-for-all, one per team in team games. Rows may come from the host (end of match).
+  tables(list) {
+    if (this.mode !== 'tdm') return this.table(list);
+    return [0, 1].map((t) => `<h3 class="team-head" style="color:${TEAMS[t].color}">${TEAMS[t].name} team — ${this.teamScore[t]}</h3>` +
+      this.table(list.filter((p) => p.team === t))).join('');
+  }
+
   renderScoreboard() {
-    $('scoreboard').innerHTML = `<h2>Scoreboard · ${esc(this.local ? 'Practice' : this.code)}</h2>${this.table(this.allScores())}`;
+    $('scoreboard').innerHTML = `<h2>${esc(MODES[this.mode])} · ${esc(this.local ? 'Practice' : this.code)}</h2>${this.tables(this.allScores())}`;
   }
 
   showEnd(board, nextMs) {
     this.endUntil = performance.now() + nextMs;
+    board = board.map((p) => ({ ...p, color: this.colorOf(p) }));
     const winner = board[0];
-    $('endScreen').innerHTML = `<h2>MATCH OVER</h2>${winner ? `<p style="font-size:22px;margin:0 0 12px">🏆 <span style="color:${esc(winner.color)}">${esc(winner.name)}</span> wins with ${winner.kills} kills!</p>` : ''}
-      ${this.table(board)}<p style="margin-top:14px">Next match in <span id="nextIn">${Math.ceil(nextMs / 1000)}</span>s${this.roomSettings.map === 'random' ? ' on a new random map' : ''}...</p>`;
+    let headline = winner ? `🏆 <span style="color:${esc(winner.color)}">${esc(winner.name)}</span> wins with ${winner.kills} kills!` : '';
+    if (this.mode === 'tdm') {
+      const [r, b] = this.teamScore;
+      headline = r === b ? `It's a draw, ${r} – ${b}!` : `🏆 <span style="color:${TEAMS[r > b ? 0 : 1].color}">${TEAMS[r > b ? 0 : 1].name} team</span> wins ${Math.max(r, b)} – ${Math.min(r, b)}!`;
+    }
+    $('endScreen').innerHTML = `<h2>MATCH OVER</h2><p style="font-size:22px;margin:0 0 12px">${headline}</p>
+      ${this.tables(board)}<p style="margin-top:14px">Next match in <span id="nextIn">${Math.ceil(nextMs / 1000)}</span>s${this.roomSettings.map === 'random' ? ' on a new random map' : ''}...</p>`;
     $('endScreen').classList.remove('hidden');
   }
 

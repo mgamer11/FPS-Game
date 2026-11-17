@@ -1,6 +1,7 @@
 // Home screen: player preview, name/color, Join-or-Create popup, settings.
 import * as THREE from 'three';
 import { MAPS } from './shared/maps.js';
+import { MODES } from './shared/modes.js';
 import { Net } from './net.js';
 import { Game } from './game.js';
 import { buildCharacter, setCharacterColor, poseCharacter } from './models.js';
@@ -129,6 +130,7 @@ const getTime = segmented($('timeSeg'), [3, 5, 8, 10, 15], 5, (v) => v + ' min')
 const getPlayers = segmented($('playersSeg'), [2, 4, 6, 8, 10, 12, 16], 8, (v) => String(v));
 const getBots = segmented($('botsSeg'), [0, 1, 2, 3, 4, 6, 8, 11], 0, (v) => (v ? String(v) : 'None'));
 const getBotSkill = segmented($('botSkillSeg'), ['easy', 'normal', 'hard'], profile.botSkill || 'normal', (v) => v[0].toUpperCase() + v.slice(1));
+const getMode = segmented($('modeSeg'), Object.keys(MODES), 'ffa', (v) => MODES[v]);
 let practice = false;
 
 function openRoomModal(tab = 'createTab') {
@@ -186,10 +188,10 @@ $('createBtn').onclick = () => {
   const me = { name: playerName(), color: profile.color };
   if (practice) {
     const bots = Math.max(1, getBots());
-    const settings = { map, time: getTime(), maxPlayers: bots + 1, bots, botSkill: getBotSkill() };
+    const settings = { map, time: getTime(), maxPlayers: bots + 1, bots, botSkill: getBotSkill(), mode: getMode() };
     request(() => net.createLocal(settings, me), 'Starting practice...');
   } else {
-    const settings = { map, time: getTime(), maxPlayers: getPlayers(), bots: getBots(), botSkill: getBotSkill() };
+    const settings = { map, time: getTime(), maxPlayers: getPlayers(), bots: getBots(), botSkill: getBotSkill(), mode: getMode() };
     request(() => net.create(settings, me), 'Creating room...');
   }
 };
@@ -210,7 +212,7 @@ function startGame(data) {
   $('game').classList.remove('hidden');
   preview.setActive(false);
   game = window.__game = new Game({
-    net, data, me: { name: data.players.find((p) => p.id === data.you)?.name || 'Player', color: profile.color, id: data.you },
+    net, data, me: { name: data.players.find((p) => p.id === data.you)?.name || 'Player', color: profile.color, baseColor: profile.color, id: data.you },
     onExit: (reason) => {
       game = null;
       net.close();
