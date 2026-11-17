@@ -55,6 +55,7 @@ These are the defaults. You can change any of them in **Settings → Keybinds** 
 - **Combat feedback:** damage numbers pop out of whoever you hit (gold for headshots), kill streaks get a callout (Double Kill, Killing Spree, Rampage...), the screen edges pulse and you hear a heartbeat at 30 health or less, and you can hear footsteps nearby. Crouch-walking is silent.
 - **Weather:** snow in Frostbite, rain in Downtown, embers in Magma Core, dust in the deserts, falling leaves in Timber Woods. It doesn't fall through roofs, and it can be turned off in Settings.
 - **Levels:** you earn XP for kills (100, or 50 for a bot), headshots (+25), finishing a match (50) and winning (300). Your level and lifetime stats are saved in your browser and shown on the home screen; your level also shows on the scoreboard.
+- **Hats:** cap, headband, beanie, cowboy hat, helmet, top hat, viking helmet and crown. They unlock at levels 1 to 15, you pick one on the home screen, and everyone in the match sees it.
 - **Minimap:** shows the map, you, your teammates, guns (yellow) and health packs. Enemies appear on it for a moment when they shoot. It can be turned off in Settings.
 - **Crouch and slide:** crouching makes you a smaller target and steadies your aim but slows you down; sliding is a quick low burst of speed.
 - **Grenades:** two per life. They bounce off blocks and explode after about two seconds. Like rockets, one grenade can't take out a full-health player.

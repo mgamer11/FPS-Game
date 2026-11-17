@@ -253,8 +253,45 @@ function shade(hex, f) {
   return c.getHex();
 }
 
+// Hats sit on the head group (head box is 0.5 wide, its top at y = 0.5; the face looks along -z).
+// [w, h, d, x, y, z, color]; 'P' means the player's own color.
+const P = 'P';
+const HAT_PARTS = {
+  none: [],
+  cap: [[0.56, 0.16, 0.56, 0, 0.6, 0, P], [0.5, 0.045, 0.24, 0, 0.545, -0.38, P], [0.1, 0.05, 0.1, 0, 0.7, 0, 0xffffff]],
+  headband: [[0.55, 0.09, 0.55, 0, 0.4, 0, 0xd92b2b], [0.07, 0.2, 0.05, 0.08, 0.3, 0.3, 0xd92b2b], [0.07, 0.15, 0.05, -0.06, 0.32, 0.3, 0xb01f1f]],
+  beanie: [[0.56, 0.2, 0.56, 0, 0.62, 0, P], [0.58, 0.08, 0.58, 0, 0.54, 0, 0xf4f4f4], [0.16, 0.14, 0.16, 0, 0.79, 0, 0xf4f4f4]],
+  cowboy: [[0.92, 0.045, 0.92, 0, 0.55, 0, 0x8b5a2b], [0.5, 0.22, 0.5, 0, 0.68, 0, 0x8b5a2b], [0.52, 0.06, 0.52, 0, 0.6, 0, 0x3a2412], [0.3, 0.06, 0.5, 0, 0.8, 0, 0x7a4d22]],
+  helmet: [[0.6, 0.26, 0.6, 0, 0.62, 0, 0x556b2f], [0.66, 0.06, 0.66, 0, 0.5, 0, 0x3f5122], [0.2, 0.05, 0.02, 0, 0.6, -0.31, 0x2a3a18]],
+  tophat: [[0.74, 0.045, 0.74, 0, 0.55, 0, 0x1c1d20], [0.44, 0.42, 0.44, 0, 0.78, 0, 0x1c1d20], [0.46, 0.08, 0.46, 0, 0.62, 0, 0xc0392b]],
+  viking: [[0.58, 0.22, 0.58, 0, 0.6, 0, 0x8a9099], [0.6, 0.06, 0.6, 0, 0.5, 0, 0xd4a537], [0.08, 0.2, 0.08, 0, 0.42, -0.3, 0x8a9099],
+    [0.14, 0.1, 0.1, 0.36, 0.64, 0, 0xf1ead0], [0.1, 0.16, 0.1, 0.44, 0.76, 0, 0xf1ead0], [0.14, 0.1, 0.1, -0.36, 0.64, 0, 0xf1ead0], [0.1, 0.16, 0.1, -0.44, 0.76, 0, 0xf1ead0]],
+  crown: [[0.54, 0.1, 0.54, 0, 0.58, 0, 0xf2c230],
+    [0.1, 0.14, 0.1, -0.22, 0.7, -0.22, 0xf2c230], [0.1, 0.14, 0.1, 0.22, 0.7, -0.22, 0xf2c230], [0.1, 0.14, 0.1, -0.22, 0.7, 0.22, 0xf2c230], [0.1, 0.14, 0.1, 0.22, 0.7, 0.22, 0xf2c230],
+    [0.1, 0.18, 0.1, 0, 0.72, -0.22, 0xf2c230], [0.1, 0.18, 0.1, 0, 0.72, 0.22, 0xf2c230],
+    [0.07, 0.07, 0.03, 0, 0.58, -0.275, 0xe02b3c, true], [0.07, 0.07, 0.03, 0.18, 0.58, -0.275, 0x2f7fd0, true], [0.07, 0.07, 0.03, -0.18, 0.58, -0.275, 0x2fb53e, true]],
+};
+
+export function buildHat(id, color) {
+  const g = new THREE.Group();
+  const own = new THREE.Color(color).getHex();
+  for (const [w, h, d, x, y, z, c, glow] of HAT_PARTS[id] || []) {
+    const col = c === P ? own : c;
+    g.add(box(w, h, d, x, y, z, col, glow ? glowMat(col) : undefined));
+  }
+  return g;
+}
+
+export function setCharacterHat(root, id) {
+  const u = root.userData;
+  if (u.hat) u.head.remove(u.hat);
+  u.hatId = id;
+  u.hat = buildHat(id, u.shirtMat.color);
+  u.head.add(u.hat);
+}
+
 // A blocky character. Feet at y = 0, faces -z.
-export function buildCharacter(color, weapon = 'ar') {
+export function buildCharacter(color, weapon = 'ar', hat = 'none') {
   const root = new THREE.Group();
   const shirt = new THREE.Color(color).getHex();
   const pants = shade(shirt, 0.45);
@@ -293,6 +330,7 @@ export function buildCharacter(color, weapon = 'ar') {
   root.add(legL, legR, torso, belt, head, armR, armL);
   root.userData = { legL, legR, head, armR, armL, gunHolder, weapon: null, walk: 0, shirtMat, pantsMat };
   setCharacterWeapon(root, weapon);
+  setCharacterHat(root, hat);
   poseCharacter(root, 0, 0, 0);
   return root;
 }
@@ -313,6 +351,7 @@ export function setCharacterColor(root, color) {
   const u = root.userData;
   u.shirtMat.color.set(color);
   u.pantsMat.color.set(color).multiplyScalar(0.45);
+  setCharacterHat(root, u.hatId); // some hats use the player's color
 }
 
 // pitch: look up/down, speed: horizontal speed for walk animation

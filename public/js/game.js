@@ -230,7 +230,7 @@ export class Game {
   addPlayer(info) {
     if (this.players.has(info.id)) return;
     const color = this.colorOf(info);
-    const model = buildCharacter(color, 'pistol');
+    const model = buildCharacter(color, 'pistol', info.hat);
     const tag = makeNameTag(info.name, color);
     // you can always see where your teammates are
     if (this.mode === 'tdm' && info.team === this.myTeam) tag.material.depthTest = false;

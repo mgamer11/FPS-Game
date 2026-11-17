@@ -2,6 +2,7 @@
 // same movement code as real players, so they obey the same walls, jumps and speeds.
 import { WEAPONS } from './shared/weapons.js';
 import { B } from './shared/maps.js';
+import { HATS } from './shared/hats.js';
 import { LocalPlayer, PLAYER } from './player.js';
 
 export const BOT_SKILLS = {
@@ -48,6 +49,7 @@ export class BotManager {
     const name = 'Bot ' + (free.length ? free[Math.floor(Math.random() * free.length)] : Math.floor(rand(100, 999)));
     const p = host.makePlayer({ send() {} }, name, COLORS[Math.floor(Math.random() * COLORS.length)]);
     p.bot = this.freshState(Math.random() * 1200);
+    p.hat = HATS[Math.floor(Math.random() * HATS.length)].id;
     host.addPlayer(p);
     return p;
   }

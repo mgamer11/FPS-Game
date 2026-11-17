@@ -2,9 +2,10 @@
 import * as THREE from 'three';
 import { MAPS } from './shared/maps.js';
 import { MODES } from './shared/modes.js';
+import { HATS } from './shared/hats.js';
 import { Net } from './net.js';
 import { Game } from './game.js';
-import { buildCharacter, setCharacterColor, poseCharacter } from './models.js';
+import { buildCharacter, setCharacterColor, setCharacterHat, poseCharacter } from './models.js';
 import { settings, bindSettingsUI, onSettingsChange } from './settings.js';
 import { keyLabel } from './keybinds.js';
 import { unlockAudio, sfx } from './audio.js';
@@ -16,7 +17,7 @@ const PROFILE_KEY = 'blockblitz.profile';
 
 const net = new Net();
 let game = null;
-let profile = { name: '', color: COLORS[0] };
+let profile = { name: '', color: COLORS[0], hat: 'none' };
 try { Object.assign(profile, JSON.parse(localStorage.getItem(PROFILE_KEY) || '{}')); } catch { /* ignore */ }
 const saveProfile = () => { try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); } catch { /* ignore */ } };
 
@@ -39,7 +40,7 @@ const preview = (() => {
   const dirt = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.5, 1.8), new THREE.MeshLambertMaterial({ color: 0x8a5a32 }));
   dirt.position.y = -0.6;
   scene.add(grass, dirt);
-  const character = buildCharacter(profile.color, 'ar');
+  const character = buildCharacter(profile.color, 'ar', profile.hat);
   scene.add(character);
   let angle = 0.5, dragging = false, lastX = 0, active = true, t0 = performance.now();
   canvas.addEventListener('pointerdown', (e) => { dragging = true; lastX = e.clientX; canvas.setPointerCapture(e.pointerId); });
@@ -68,6 +69,7 @@ const preview = (() => {
   requestAnimationFrame(frame);
   return {
     setColor: (c) => setCharacterColor(character, c),
+    setHat: (h) => setCharacterHat(character, h),
     setActive: (a) => { active = a; },
   };
 })();
@@ -92,8 +94,27 @@ for (const c of COLORS) {
   sw.appendChild(d);
 }
 
+// Hat picker: hats above your level are locked.
+function renderHats() {
+  const level = levelInfo().level;
+  if (!HATS.some((h) => h.id === profile.hat && h.level <= level)) { profile.hat = 'none'; preview.setHat('none'); }
+  const list = $('hatList');
+  list.innerHTML = '';
+  for (const h of HATS) {
+    const b = document.createElement('button');
+    const locked = h.level > level;
+    b.className = 'hat' + (h.id === profile.hat ? ' sel' : '') + (locked ? ' locked' : '');
+    b.textContent = locked ? `${h.name} · Lv ${h.level}` : h.name;
+    b.disabled = locked;
+    b.title = locked ? `Reach level ${h.level} to unlock` : h.name;
+    b.onclick = () => { profile.hat = h.id; saveProfile(); preview.setHat(h.id); renderHats(); };
+    list.appendChild(b);
+  }
+}
+
 // Level, XP bar and lifetime stats under your name.
 function renderProgress() {
+  renderHats();
   const { level, into, need } = levelInfo();
   $('lvlNum').textContent = level;
   $('xpFill').style.width = Math.round((into / need) * 100) + '%';
@@ -197,7 +218,7 @@ $('createBtn').onclick = () => {
   const map = mapSelect.value === 'random' ? 'random' : Number(mapSelect.value);
   profile.botSkill = getBotSkill();
   saveProfile();
-  const me = { name: playerName(), color: profile.color, lvl: levelInfo().level };
+  const me = { name: playerName(), color: profile.color, lvl: levelInfo().level, hat: profile.hat };
   if (practice) {
     const bots = Math.max(1, getBots());
     const settings = { map, time: getTime(), maxPlayers: bots + 1, bots, botSkill: getBotSkill(), mode: getMode() };
@@ -214,7 +235,7 @@ $('joinBtn').onclick = () => {
     $('roomError').textContent = 'Room codes are exactly 5 letters/numbers.';
     return;
   }
-  request(() => net.join(code, { name: playerName(), color: profile.color, lvl: levelInfo().level }), 'Connecting to room ' + code + '...');
+  request(() => net.join(code, { name: playerName(), color: profile.color, lvl: levelInfo().level, hat: profile.hat }), 'Connecting to room ' + code + '...');
 };
 
 // ---------------------------------------------------------------- game start / exit

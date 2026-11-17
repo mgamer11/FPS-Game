@@ -4,6 +4,7 @@
 import { MAPS, generateMap, mapHash } from './shared/maps.js';
 import { WEAPONS, maxHitDamage, MAX_HP, HEAL_AMOUNT } from './shared/weapons.js';
 import { MODES } from './shared/modes.js';
+import { HATS, isHat } from './shared/hats.js';
 import { rayBox, playerBoxes } from './shared/voxel.js';
 import { navFor } from './shared/nav.js';
 import { BotManager, BOT_SKILLS, MAX_BOTS } from './bots.js';
@@ -33,7 +34,7 @@ function cleanColor(c) {
 }
 
 function publicPlayer(p) {
-  return { id: p.id, name: p.name, color: p.color, kills: p.kills, deaths: p.deaths, hp: p.hp, dead: p.dead, pos: p.pos, bot: !!p.bot, team: p.team, lvl: p.lvl };
+  return { id: p.id, name: p.name, color: p.color, kills: p.kills, deaths: p.deaths, hp: p.hp, dead: p.dead, pos: p.pos, bot: !!p.bot, team: p.team, lvl: p.lvl, hat: p.hat };
 }
 
 // A timer that keeps ticking even when the browser tab is in the background
@@ -208,6 +209,7 @@ export class RoomHost {
     if (this.players.size >= this.settings.maxPlayers) this.bots.remove(); // a bot makes room for a person
     const p = this.makePlayer(conn, cleanName(msg.name), cleanColor(msg.color));
     p.lvl = Math.max(1, Math.min(999, Math.floor(Number(msg.lvl)) || 1));
+    p.hat = isHat(msg.hat) ? msg.hat : 'none';
     conn.player = p;
     if (!this.hostId) this.hostId = p.id;
     this.players.set(p.id, p);
@@ -218,7 +220,7 @@ export class RoomHost {
 
   makePlayer(conn, name, color) {
     return {
-      id: this.nextId++, conn, name, color, team: this.smallerTeam(), lvl: 0,
+      id: this.nextId++, conn, name, color, team: this.smallerTeam(), lvl: 0, hat: 'none',
       pos: [0, -100, 0], yaw: 0, pitch: 0, w: 'pistol', flags: 0,
       hp: 100, dead: true, deathAt: 0, kills: 0, deaths: 0, lastDmg: 0, prot: 0,
     };
