@@ -2,7 +2,7 @@
 // build exactly the same world from just the map number.
 import { mulberry32 } from './rng.js';
 import { VoxelWorld } from './voxel.js';
-import { PICKUP_WEAPONS } from './weapons.js';
+import { PICKUP_WEAPONS, HEALTH_PACKS } from './weapons.js';
 import { Nav } from './nav.js';
 
 export const B = {
@@ -846,6 +846,9 @@ export function generateMap(index) {
     order.push(...bag);
   }
   const pickups = pickSpots.map((p, i) => ({ id: i, type: order[i], x: p[0], y: p[1], z: p[2] }));
+  // health packs: spread out, and not on top of a gun
+  const healthSpots = spread(shuffle(twoWay, rng).filter((c) => pickSpots.every((q) => Math.abs(q[0] - c[0]) + Math.abs(q[2] - c[2]) > 5)), HEALTH_PACKS, 16);
+  for (const p of healthSpots) pickups.push({ id: pickups.length, type: 'health', x: p[0], y: p[1], z: p[2] });
   const result = { world, def, spawns, pickups, index, nav };
   cache.set(index, result);
   return result;

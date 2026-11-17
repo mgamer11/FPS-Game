@@ -17,6 +17,7 @@ const COLORS = ['#ef4444', '#22c55e', '#f59e0b', '#a855f7', '#ec4899', '#14b8a6'
 const TIER = { pistol: 0, revolver: 1, smg: 1, shotgun: 1, burst: 2, ar: 2, dmr: 2, lmg: 2, sniper: 2 };
 const IDEAL_RANGE = { shotgun: 4, smg: 9, pistol: 11, revolver: 13, ar: 14, burst: 15, lmg: 15, dmr: 22, sniper: 28 };
 const RESPAWN_MS = 3200;
+const HURT = 55; // below this health a bot goes looking for a health pack
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) * 1.15;
@@ -66,7 +67,7 @@ export class BotManager {
       target: null, seenAt: 0, reactAt: 0, lastKnown: null, alert: 0, alertAt: 0,
       nextThink: 0, nextFire: 0, mag: WEAPONS.pistol.mag, reloadUntil: 0, burstLeft: 0, sprayUntil: 0, restUntil: 0,
       strafe: Math.random() < 0.5 ? 1 : -1, strafeUntil: 0, stuckT: 0, wanderUntil: 0, lastLava: 0,
-      aimHead: false, respawnJitter,
+      aimHead: false, healing: false, respawnJitter,
       skill: BOT_SKILLS[this.host.settings.botSkill] || BOT_SKILLS.normal,
     };
   }
@@ -155,6 +156,7 @@ export class BotManager {
       }
       return;
     }
+    if (p.hp < HURT && !b.healing && host.pickups.some((pk) => pk.active && pk.type === 'health')) b.goalUntil = 0;
     if (b.pi < b.path.length && now < b.goalUntil) return;
     b.goalUntil = now + 20000;
     // lost sight of someone: go and look where they were
@@ -179,9 +181,15 @@ export class BotManager {
   // Somewhere interesting to walk to: a better gun, or just another part of the map.
   pickGoal(p) {
     const host = this.host, body = p.bot.body;
+    const near = (a, b) => Math.hypot(a.x - body.pos.x, a.z - body.pos.z) - Math.hypot(b.x - body.pos.x, b.z - body.pos.z);
+    p.bot.healing = false;
+    if (p.hp < HURT) {
+      const packs = host.pickups.filter((pk) => pk.active && pk.type === 'health').sort(near);
+      if (packs.length) { p.bot.healing = true; return [packs[0].x, packs[0].y, packs[0].z]; }
+    }
     const wanted = host.pickups.filter((pk) => pk.active && this.wants(p, pk));
     if (wanted.length && Math.random() < 0.75) {
-      wanted.sort((a, b) => Math.hypot(a.x - body.pos.x, a.z - body.pos.z) - Math.hypot(b.x - body.pos.x, b.z - body.pos.z));
+      wanted.sort(near);
       const pk = wanted[Math.floor(Math.random() * Math.min(3, wanted.length))];
       return [pk.x, pk.y, pk.z];
     }
@@ -288,10 +296,13 @@ export class BotManager {
 
     // ---- walking over a better gun picks it up
     for (const pk of host.pickups) {
-      if (!pk.active || !this.wants(p, pk)) continue;
+      const health = pk.type === 'health';
+      if (!pk.active || (health ? p.hp > 99 : !this.wants(p, pk))) continue;
       const dx = pk.x - body.pos.x, dz = pk.z - body.pos.z, dy = body.pos.y - pk.y;
       if (dx * dx + dz * dz < 1.2 && dy > -1 && dy < 1.6) {
-        host.takePickup(pk, p);
+        if (!host.takePickup(pk, p)) continue;
+        b.goalUntil = 0;
+        if (health) continue;
         p.w = pk.type;
         b.mag = WEAPONS[pk.type].mag;
         b.reloadUntil = 0;

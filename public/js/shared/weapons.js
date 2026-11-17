@@ -58,6 +58,8 @@ export const PICKUP_WEAPONS = ['ar', 'smg', 'shotgun', 'sniper', 'lmg', 'revolve
 export const HOTBAR_SIZE = 10;
 
 export const MAX_HP = 100;
+export const HEAL_AMOUNT = 50; // health packs
+export const HEALTH_PACKS = 5; // per map
 export const POINT_BLANK = 3;
 
 // Highest damage a single hit message may report (checked by the server).

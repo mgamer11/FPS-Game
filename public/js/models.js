@@ -204,6 +204,20 @@ export function buildGun(id) {
   return g;
 }
 
+// Health pack: a white case with a red cross.
+export function buildMedkit() {
+  const g = new THREE.Group();
+  const white = 0xf4f4f4, red = 0xe02b3c;
+  g.add(box(0.36, 0.3, 0.5, 0, 0.05, 0, white));
+  g.add(box(0.37, 0.05, 0.51, 0, 0.13, 0, 0xcfcfcf)); // lid seam
+  g.add(box(0.1, 0.04, 0.16, 0, 0.22, 0, 0x555555)); // handle
+  for (const side of [-1, 1]) {
+    g.add(box(0.02, 0.2, 0.07, side * 0.185, 0.03, 0, red, glowMat(red)));
+    g.add(box(0.02, 0.07, 0.2, side * 0.185, 0.03, 0, red, glowMat(red)));
+  }
+  return g;
+}
+
 // Side-view picture of a gun for the hotbar, drawn from the same parts (cached data URL).
 const iconCache = new Map();
 export function gunIcon(id) {

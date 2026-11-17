@@ -75,6 +75,7 @@ export const sfx = {
   hurt: () => noiseBurst(400, 0.15, 0.35, 1),
   empty: () => tone(300, 0.05, 0.2, 'square'),
   reload: () => { noiseBurst(2500, 0.05, 0.2, 2, 'bandpass'); setTimeout(() => noiseBurst(1800, 0.06, 0.25, 2, 'bandpass'), 220); },
+  heal: () => { tone(520, 0.1, 0.2, 'sine'); setTimeout(() => tone(780, 0.12, 0.2, 'sine'), 90); setTimeout(() => tone(1040, 0.18, 0.2, 'sine'), 190); },
   pickup: () => { tone(600, 0.08, 0.2, 'square'); setTimeout(() => tone(900, 0.1, 0.2, 'square'), 70); },
   dash: () => noiseBurst(1200, 0.25, 0.3, 0.5, 'bandpass'),
   jump: () => tone(220, 0.08, 0.06, 'sine', 330),

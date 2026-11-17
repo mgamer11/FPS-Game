@@ -1,11 +1,11 @@
 // The in-match game: world, local player, other players, weapons, effects and HUD.
 import * as THREE from 'three';
 import { generateMap, mapHash, MAPS, B } from './shared/maps.js';
-import { WEAPONS, HOTBAR_SIZE } from './shared/weapons.js';
+import { WEAPONS, HOTBAR_SIZE, MAX_HP, HEAL_AMOUNT } from './shared/weapons.js';
 import { MODES, TEAMS } from './shared/modes.js';
 import { rayBox, playerBoxes } from './shared/voxel.js';
 import { buildWorldMeshes } from './worldmesh.js';
-import { buildCharacter, buildGun, setCharacterWeapon, poseCharacter, makeNameTag, gunIcon } from './models.js';
+import { buildCharacter, buildGun, buildMedkit, setCharacterWeapon, poseCharacter, makeNameTag, gunIcon } from './models.js';
 import { LocalPlayer, PLAYER } from './player.js';
 import { settings, onSettingsChange } from './settings.js';
 import { keyLabel } from './keybinds.js';
@@ -225,14 +225,15 @@ export class Game {
 
   addPickup(pk) {
     const g = new THREE.Group();
-    const gun = buildGun(pk.type);
-    gun.scale.setScalar(1.7);
+    const health = pk.type === 'health';
+    const gun = health ? buildMedkit() : buildGun(pk.type);
+    gun.scale.setScalar(health ? 1.2 : 1.7);
     gun.rotation.y = Math.PI / 2;
     const spin = new THREE.Group();
     spin.add(gun);
     spin.position.y = 0.7;
     g.add(spin);
-    const col = { rocket: 0xff5533, sniper: 0xb36bff, lmg: 0xb36bff, dmr: 0xb36bff, shotgun: 0x4fc3f7, revolver: 0x4fc3f7, burst: 0x4fc3f7 }[pk.type] || 0x7cff7c;
+    const col = { health: 0xff4d6d, rocket: 0xff5533, sniper: 0xb36bff, lmg: 0xb36bff, dmr: 0xb36bff, shotgun: 0x4fc3f7, revolver: 0x4fc3f7, burst: 0x4fc3f7 }[pk.type] || 0x7cff7c;
     const base = new THREE.Mesh(cubeGeo, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.55 }));
     base.scale.set(0.9, 0.06, 0.9);
     base.position.y = 0.03;
@@ -515,7 +516,13 @@ export class Game {
         const pk = this.pickups.get(m.id);
         if (pk) { pk.mesh.visible = false; pk.active = false; }
         this.pendingPickups.delete(m.id);
-        if (m.by === this.myId) this.equip(m.type);
+        if (m.by === this.myId) {
+          if (m.type === 'health') {
+            this.hp = Math.min(MAX_HP, this.hp + HEAL_AMOUNT);
+            sfx.heal();
+            this.notice(`+${HEAL_AMOUNT} health`);
+          } else this.equip(m.type);
+        }
         break;
       }
       case 'pk': {
@@ -1064,7 +1071,7 @@ export class Game {
       }
       // weapon pickups: walk over them
       for (const pk of this.pickups.values()) {
-        if (!pk.active) continue;
+        if (!pk.active || (pk.type === 'health' && this.hp >= MAX_HP)) continue;
         const dx = pk.x - pl.pos.x, dz = pk.z - pl.pos.z, dy = pl.pos.y - pk.y;
         if (dx * dx + dz * dz < 1.1 && dy > -1 && dy < 1.6) {
           const last = this.pendingPickups.get(pk.id) || 0;

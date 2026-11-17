@@ -2,7 +2,7 @@
 // the room. Every player (including the host) talks to it through a connection object
 // with a send(msg) method.
 import { MAPS, generateMap, mapHash } from './shared/maps.js';
-import { WEAPONS, maxHitDamage } from './shared/weapons.js';
+import { WEAPONS, maxHitDamage, MAX_HP, HEAL_AMOUNT } from './shared/weapons.js';
 import { MODES } from './shared/modes.js';
 import { rayBox, playerBoxes } from './shared/voxel.js';
 import { navFor } from './shared/nav.js';
@@ -12,6 +12,7 @@ import { BUILD, VERSION_MISMATCH } from './version.js';
 const TICK_MS = 50; // 20 updates per second
 const RESPAWN_DELAY = 3000;
 const PICKUP_RESPAWN = 18000;
+const HEALTH_RESPAWN = 22000;
 const END_SCREEN_MS = 10000;
 const ALLOWED_TIMES = [3, 5, 8, 10, 15];
 export const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O or 1/I to avoid confusion
@@ -152,10 +153,17 @@ export class RoomHost {
     return { t: best, player: hitP, head, point: [origin[0] + dir[0] * best, origin[1] + dir[1] * best, origin[2] + dir[2] * best] };
   }
 
+  // Returns false when the player has no use for it (a health pack at full health).
   takePickup(pk, p) {
+    const health = pk.type === 'health';
+    if (health) {
+      if (p.hp >= MAX_HP) return false;
+      p.hp = Math.min(MAX_HP, p.hp + HEAL_AMOUNT);
+    }
     pk.active = false;
-    pk.respawnAt = Date.now() + PICKUP_RESPAWN;
+    pk.respawnAt = Date.now() + (health ? HEALTH_RESPAWN : PICKUP_RESPAWN);
     this.broadcast({ t: 'took', id: pk.id, by: p.id, type: pk.type });
+    return true;
   }
 
   startMatch() {
