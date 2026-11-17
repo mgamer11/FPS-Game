@@ -105,6 +105,8 @@
         <input type="checkbox" id="invertY" />
         <label>View Bobbing</label>
         <input type="checkbox" id="bob" />
+        <label>Show Minimap</label>
+        <input type="checkbox" id="minimapOn" />
         <label>Show FPS</label>
         <input type="checkbox" id="showFps" />
       </div>
@@ -136,7 +138,10 @@
         <div id="roomCode">CODE: -----</div>
         <div id="mapName"></div>
       </div>
-      <div id="leader"></div>
+      <div id="topLeft">
+        <canvas id="minimap" width="176" height="176"></canvas>
+        <div id="leader"></div>
+      </div>
       <div id="killfeed"></div>
       <div id="fps" class="hidden"></div>
       <div id="chatLog"></div>

@@ -90,7 +90,9 @@ kbd { display: inline-block; min-width: 24px; padding: 2px 6px; margin-right: 3p
 #timer { font-family: 'Lilita One', sans-serif; font-size: 34px; background: rgba(0,0,0,.35); padding: 2px 18px; border-radius: 12px; }
 #roomCode { font-size: 14px; margin-top: 4px; letter-spacing: 2px; }
 #mapName { font-size: 12px; opacity: .85; }
-#leader { position: absolute; top: calc(12px * var(--hud, 1)); left: calc(14px * var(--hud, 1)); transform: scale(var(--hud, 1)); transform-origin: top left; font-size: 15px; background: rgba(0,0,0,.3); padding: 8px 12px; border-radius: 10px; line-height: 1.5; }
+#topLeft { position: absolute; top: calc(12px * var(--hud, 1)); left: calc(14px * var(--hud, 1)); transform: scale(var(--hud, 1)); transform-origin: top left; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+#minimap { width: 176px; height: 176px; border-radius: 12px; border: 3px solid rgba(255,255,255,.75); box-shadow: 0 4px 12px rgba(0,0,0,.35); image-rendering: pixelated; background: #22313f; }
+#leader { font-size: 15px; background: rgba(0,0,0,.3); padding: 8px 12px; border-radius: 10px; line-height: 1.5; }
 #killfeed { position: absolute; top: calc(12px * var(--hud, 1)); right: calc(14px * var(--hud, 1)); transform: scale(var(--hud, 1)); transform-origin: top right; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .kf { background: rgba(0,0,0,.45); padding: 4px 10px; border-radius: 8px; font-size: 14px; animation: fadein .15s; }
 .kf .wpn { color: #ffd23f; margin: 0 6px; font-size: 12px; }

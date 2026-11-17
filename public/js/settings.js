@@ -3,7 +3,7 @@ import { ACTIONS, DEFAULT_KEYS, keyLabel, RESERVED } from './keybinds.js';
 
 const DEFAULTS = {
   sens: 1, zoomSens: 0.7, fov: 80, vol: 0.6, qual: 1, hudScale: 1,
-  xhairColor: '#ffffff', invertY: false, bob: true, showFps: false, fullscreen: true,
+  xhairColor: '#ffffff', invertY: false, bob: true, showFps: false, fullscreen: true, minimapOn: true,
 };
 const KEY = 'blockblitz.settings';
 

@@ -11,6 +11,7 @@ import { settings, onSettingsChange } from './settings.js';
 import { keyLabel } from './keybinds.js';
 import { playGun, sfx, setVolume } from './audio.js';
 import { blockColor } from './textures.js';
+import { Minimap } from './minimap.js';
 
 const $ = (id) => document.getElementById(id);
 const RESPAWN_MS = 3000;
@@ -109,6 +110,7 @@ export class Game {
     this.hud = {};
     this.chatLines = [];
     this.fpsAcc = { t: 0, n: 0 };
+    this.minimap = new Minimap($('minimap'));
 
     this.bindInput();
     this.unsub = net.on((m) => this.onMessage(m));
@@ -183,6 +185,7 @@ export class Game {
     this.world = this.map.world;
     this.worldGroup = buildWorldMeshes(this.world);
     this.scene.add(this.worldGroup);
+    this.minimap.setMap(this.map);
     const def = this.map.def;
     this.scene.background = skyTexture(def.sky[0], def.sky[1]);
     this.scene.fog = new THREE.Fog(def.fog, 45, 150);
@@ -257,6 +260,7 @@ export class Game {
     this.resize();
     document.getElementById('crosshair').style.setProperty('--c', settings.xhairColor);
     $('fps').classList.toggle('hidden', !settings.showFps);
+    $('minimap').classList.toggle('hidden', !settings.minimapOn);
   }
 
   resize() {
@@ -584,6 +588,7 @@ export class Game {
   onRemoteShot(m) {
     const p = this.players.get(m.id);
     if (!p) return;
+    p.lastShot = performance.now(); // shows them on the minimap for a moment
     const w = WEAPONS[m.w];
     const origin = tmpV.copy(p.pos).add(new THREE.Vector3(-Math.sin(p.yaw) * 0.6 + Math.cos(p.yaw) * 0.35, 1.3, -Math.cos(p.yaw) * 0.6 - Math.sin(p.yaw) * 0.35)).clone();
     const dist = origin.distanceTo(this.camera.position);
@@ -1317,6 +1322,8 @@ export class Game {
       const r = Math.max(0, RESPAWN_MS - (now - this.deathAt));
       this.set('respawnTimer', r > 0 ? `Respawning in ${(r / 1000).toFixed(1)}s` : 'Respawning...');
     }
+
+    if (settings.minimapOn) this.minimap.draw(this, now);
 
     // leader box
     const all = this.allScores();

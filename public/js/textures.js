@@ -286,6 +286,11 @@ const PARTICLE_COLORS = {
   [B.GRASS]: 0x5bb33c, [B.DIRT]: 0x8a5a32, [B.LEAVES]: 0x3f9a35, [B.PINE]: 0x2d6b3a, [B.SAND]: 0xe8d49a,
   [B.SNOW]: 0xf4f8fb, [B.PLANK]: 0xb8894f, [B.LOG]: 0x6b4a2b, [B.BRICK]: 0xa8473a, [B.CRATE]: 0xb07a3e,
   [B.LAVA]: 0xff6a00, [B.WATER]: 0x2f7fd0, [B.CLAY]: 0xc0603a, [B.SANDSTONE]: 0xd9b77a, [B.BASALT]: 0x3a3436,
+  [B.STONE]: 0x8b8f94, [B.CONCRETE]: 0xb5b8bb, [B.ICE]: 0x9fd3f0, [B.METAL]: 0x9aa3ab, [B.ROOF]: 0xb5412f,
+  [B.BEDROCK]: 0x333333, [B.CACTUS]: 0x3f9b3a, [B.STONEBRICK]: 0x8d9196, [B.MOSSY]: 0x6f8a62, [B.CONT_RED]: 0xb8352b,
+  [B.CONT_BLUE]: 0x2b5fb8, [B.CONT_GREEN]: 0x2f8a45, [B.ASPHALT]: 0x46484c, [B.GRAVEL]: 0x8c8580, [B.SANDBAG]: 0xb9a57a,
+  [B.PLASTER]: 0xece4d6, [B.DARKPLANK]: 0x6b4a2e, [B.LINE]: 0xf2c230, [B.CAR_RED]: 0xd8342b, [B.CAR_BLUE]: 0x2f6fd8,
+  [B.GLASS]: 0xa8d8f0, [B.SNOWROOF]: 0xe8f0f6,
 };
 export function blockColor(id) {
   return PARTICLE_COLORS[id] ?? 0x8b8f94;
