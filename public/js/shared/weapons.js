@@ -54,6 +54,15 @@ export const WEAPONS = {
   },
 };
 
+// Thrown with its own key; everyone gets a couple per life.
+export const GRENADE = { name: 'Grenade', dmg: 90, splash: 5, fuse: 2.2, speed: 14, count: 2, cooldown: 700 };
+
+export function weaponName(id) {
+  if (id === 'lava') return 'Lava';
+  if (id === 'grenade') return GRENADE.name;
+  return WEAPONS[id] ? WEAPONS[id].name : String(id);
+}
+
 export const PICKUP_WEAPONS = ['ar', 'smg', 'shotgun', 'sniper', 'lmg', 'revolver', 'rocket', 'dmr', 'burst'];
 export const HOTBAR_SIZE = 10;
 
@@ -67,6 +76,7 @@ export const POINT_BLANK = 3;
 // a headshot, or a shotgun at point-blank range.
 export function maxHitDamage(id, head = false, dist = 0) {
   if (id === 'lava') return 15;
+  if (id === 'grenade') return GRENADE.dmg + 1;
   const w = WEAPONS[id];
   if (!w) return 0;
   if (w.projectile) return w.dmg + 1;

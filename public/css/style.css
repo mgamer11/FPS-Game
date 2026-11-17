@@ -103,7 +103,12 @@ kbd { display: inline-block; min-width: 24px; padding: 2px 6px; margin-right: 3p
 .hp-wrap { position: relative; height: 34px; background: rgba(0,0,0,.45); border-radius: 10px; overflow: hidden; border: 3px solid rgba(255,255,255,.7); }
 #hpFill { position: absolute; inset: 0; width: 100%; background: linear-gradient(180deg, #5fe06a, #2fb53e); transition: width .15s; }
 #hpText { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: 'Lilita One', sans-serif; font-size: 22px; }
-#dashBar { position: relative; margin-top: 8px; height: 18px; width: 160px; background: rgba(0,0,0,.45); border-radius: 8px; overflow: hidden; border: 2px solid rgba(255,255,255,.6); }
+#bottomLeft .row { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+#nades { display: flex; align-items: center; gap: 4px; font-size: 11px; letter-spacing: 1px; }
+#nades i { width: 12px; height: 15px; border-radius: 4px; background: #6b8e23; border: 2px solid rgba(255,255,255,.75); }
+#nades i.used { background: rgba(0,0,0,.35); border-color: rgba(255,255,255,.3); }
+#nades .lbl2 { opacity: .9; margin-right: 2px; }
+#dashBar { position: relative; height: 18px; width: 160px; background: rgba(0,0,0,.45); border-radius: 8px; overflow: hidden; border: 2px solid rgba(255,255,255,.6); }
 #dashFill { position: absolute; inset: 0; background: #4fc3f7; }
 #dashBar span { position: absolute; inset: 0; font-size: 11px; display: flex; align-items: center; justify-content: center; letter-spacing: 1px; }
 #bottomRight { position: absolute; right: calc(18px * var(--hud, 1)); bottom: calc(18px * var(--hud, 1)); text-align: right; transform: scale(var(--hud, 1)); transform-origin: bottom right; }

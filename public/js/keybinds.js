@@ -11,6 +11,7 @@ export const ACTIONS = [
   { id: 'shoot', label: 'Shoot', def: 'Mouse0' },
   { id: 'aim', label: 'Zoom / aim', def: 'Mouse2' },
   { id: 'reload', label: 'Reload', def: 'KeyR' },
+  { id: 'grenade', label: 'Throw grenade', def: 'KeyG' },
   { id: 'prevWeapon', label: 'Previous gun', def: 'KeyQ' },
   { id: 'scoreboard', label: 'Scoreboard (hold)', def: 'Tab' },
   { id: 'chat', label: 'Chat', def: 'KeyT' },

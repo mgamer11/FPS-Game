@@ -288,13 +288,19 @@ export class RoomHost {
         break;
       }
       case 'boom':
-        if (Array.isArray(msg.p)) this.broadcast({ t: 'boom', id: p.id, p: msg.p.slice(0, 3) }, p.id);
+        if (Array.isArray(msg.p)) this.broadcast({ t: 'boom', id: p.id, p: msg.p.slice(0, 3), n: msg.n }, p.id);
+        break;
+      case 'nade':
+        if (p.dead || !Array.isArray(msg.o) || !Array.isArray(msg.v)) return;
+        this.broadcast({ t: 'nade', id: p.id, o: msg.o.slice(0, 3), v: msg.v.slice(0, 3), n: msg.n }, p.id);
         break;
       case 'hit': {
         const target = this.players.get(Number(msg.target));
         const dmg = Number(msg.dmg);
         if (!target || !Number.isFinite(dmg) || dmg <= 0) return;
-        if (msg.w !== 'lava' && p.dead) return;
+        // a rocket or grenade already in the air still counts just after its owner died
+        const explosive = msg.w === 'grenade' || msg.w === 'rocket';
+        if (msg.w !== 'lava' && p.dead && !(explosive && Date.now() - p.deathAt < 4000)) return;
         if (msg.w === 'lava' && target !== p) return;
         const dist = Math.hypot(p.pos[0] - target.pos[0], p.pos[1] - target.pos[1], p.pos[2] - target.pos[2]);
         if (dmg > maxHitDamage(msg.w, !!msg.head, dist)) return;

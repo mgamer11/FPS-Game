@@ -1,7 +1,7 @@
 // The in-match game: world, local player, other players, weapons, effects and HUD.
 import * as THREE from 'three';
 import { generateMap, mapHash, MAPS, B } from './shared/maps.js';
-import { WEAPONS, HOTBAR_SIZE, MAX_HP, HEAL_AMOUNT } from './shared/weapons.js';
+import { WEAPONS, HOTBAR_SIZE, MAX_HP, HEAL_AMOUNT, GRENADE, weaponName } from './shared/weapons.js';
 import { MODES, TEAMS } from './shared/modes.js';
 import { rayBox, playerBoxes } from './shared/voxel.js';
 import { buildWorldMeshes } from './worldmesh.js';
@@ -94,6 +94,9 @@ export class Game {
     this.tracers = [];
     this.particles = [];
     this.rockets = [];
+    this.nades = [];
+    this.nadeSeq = 0;
+    this.nextNade = 0;
     this.explosions = [];
     this.clouds = [];
     this.recoil = 0;
@@ -175,6 +178,7 @@ export class Game {
     }
     for (const c of this.clouds) this.scene.remove(c);
     this.clouds = [];
+    for (const list of [this.nades, this.rockets]) { for (const r of list) this.scene.remove(r.mesh); list.length = 0; }
     this.map = generateMap(index);
     this.world = this.map.world;
     this.worldGroup = buildWorldMeshes(this.world);
@@ -361,6 +365,7 @@ export class Game {
     if (action === 'shoot') { this.mouseDown = true; this.firedSinceDown = false; }
     else if (action === 'aim') this.zoomHeld = true;
     else if (action === 'reload') this.startReload();
+    else if (action === 'grenade') this.throwGrenade();
     else if (action === 'prevWeapon') this.switchSlot(this.lastSlot);
     else if (action === 'chat') this.openChat();
     else if (action.startsWith('slot')) this.switchSlot(Number(action.slice(4)) - 1);
@@ -485,11 +490,16 @@ export class Game {
       case 'host': this.hostId = m.id; break;
       case 'shot': this.onRemoteShot(m); break;
       case 'boom': {
-        const idx = this.rockets.findIndex((r) => r.owner === m.id);
-        if (idx >= 0) { this.scene.remove(this.rockets[idx].mesh); this.rockets.splice(idx, 1); }
-        this.explode(new THREE.Vector3(...m.p), false);
+        const grenade = m.n !== undefined && m.n !== null;
+        const list = grenade ? this.nades : this.rockets;
+        const idx = list.findIndex((r) => r.owner === m.id && (!grenade || r.n === m.n));
+        if (idx >= 0) { this.scene.remove(list[idx].mesh); list.splice(idx, 1); }
+        this.explode(new THREE.Vector3(...m.p), false, grenade ? 'grenade' : 'rocket');
         break;
       }
+      case 'nade':
+        if (Array.isArray(m.o) && Array.isArray(m.v)) this.spawnGrenade(new THREE.Vector3(...m.o), new THREE.Vector3(...m.v), m.id, m.n, false);
+        break;
       case 'dmg': this.onDamage(m); break;
       case 'kill': this.onKill(m); break;
       case 'spawn': {
@@ -611,7 +621,7 @@ export class Game {
   onKill(m) {
     const name = (id) => (id === this.myId ? this.me.name : this.players.get(id)?.name || '?');
     const color = (id) => (id === this.myId ? this.me.color : this.players.get(id)?.color || '#fff');
-    const wname = m.w === 'lava' ? 'Lava' : WEAPONS[m.w]?.name || m.w;
+    const wname = weaponName(m.w);
     const mine = m.k === this.myId || m.v === this.myId;
     if (m.k === m.v) this.feed(`<b style="color:${esc(color(m.v))}">${esc(name(m.v))}</b><span class="wpn">[${esc(wname)}]</span>themselves`, mine);
     else this.feed(`<b style="color:${esc(color(m.k))}">${esc(name(m.k))}</b><span class="wpn">[${esc(wname)}${m.head ? ' ✦' : ''}]</span><b style="color:${esc(color(m.v))}">${esc(name(m.v))}</b>`, mine);
@@ -652,6 +662,7 @@ export class Game {
     this.slot = 0;
     this.lastSlot = 0;
     this.burstLeft = 0;
+    this.grenades = GRENADE.count;
   }
 
   // Walking over a gun: refill it if you already carry one, otherwise put it in the first free hotbar slot.
@@ -856,7 +867,80 @@ export class Game {
     }
   }
 
-  explode(pos, mine) {
+  // ------------------------------------------------------------------ grenades
+  throwGrenade() {
+    const now = performance.now();
+    if (!this.alive || this.grenades <= 0 || now < this.nextNade || this.state !== 'playing') return;
+    this.grenades--;
+    this.nextNade = now + GRENADE.cooldown;
+    const fwd = this.camera.getWorldDirection(new THREE.Vector3());
+    const o = this.camera.getWorldPosition(new THREE.Vector3()).addScaledVector(fwd, 0.5);
+    o.y -= 0.15;
+    const v = fwd.multiplyScalar(GRENADE.speed).addScaledVector(this.player.vel, 0.5);
+    v.y += 3.5;
+    const n = ++this.nadeSeq;
+    this.spawnGrenade(o, v, this.myId, n, true);
+    this.net.send({ t: 'nade', n, o: o.toArray().map((x) => +x.toFixed(2)), v: v.toArray().map((x) => +x.toFixed(2)) });
+    sfx.throw();
+    this.vm.swap = Math.max(this.vm.swap, 0.5);
+  }
+
+  spawnGrenade(pos, vel, owner, n, mine) {
+    const mesh = new THREE.Group();
+    const body = new THREE.Mesh(cubeGeo, particleMat(0x3f5122));
+    body.scale.set(0.2, 0.24, 0.2);
+    const band = new THREE.Mesh(cubeGeo, particleMat(0x9aa0a6));
+    band.scale.set(0.12, 0.08, 0.12);
+    band.position.y = 0.15;
+    const light = new THREE.Mesh(cubeGeo, particleMat(0xff3b3b));
+    light.scale.set(0.21, 0.05, 0.21);
+    mesh.add(body, band, light);
+    mesh.position.copy(pos);
+    this.scene.add(mesh);
+    this.nades.push({ pos: pos.clone(), vel: vel.clone(), owner, n, mine, mesh, light, t: 0 });
+  }
+
+  updateGrenades(dt) {
+    const w = this.world, R = 0.13;
+    for (let i = this.nades.length - 1; i >= 0; i--) {
+      const g = this.nades[i];
+      g.t += dt;
+      // small fixed steps so it can't tunnel through a wall
+      for (let left = dt; left > 0; left -= 1 / 120) {
+        const h = Math.min(left, 1 / 120);
+        g.vel.y -= 22 * h;
+        for (const axis of ['x', 'y', 'z']) {
+          const d = g.vel[axis] * h;
+          g.pos[axis] += d;
+          const probe = g.pos.clone();
+          probe[axis] += Math.sign(d) * R;
+          if (w.solid(Math.floor(probe.x), Math.floor(probe.y), Math.floor(probe.z))) {
+            g.pos[axis] -= d;
+            if (Math.abs(g.vel[axis]) > 2.5) sfx.bounce(g.pos.distanceTo(this.camera.position));
+            g.vel[axis] *= -0.42;
+            // lose some speed along the surface too (rolling)
+            for (const other of ['x', 'y', 'z']) if (other !== axis) g.vel[other] *= axis === 'y' ? 0.72 : 0.9;
+          }
+        }
+      }
+      g.mesh.position.copy(g.pos);
+      g.mesh.rotation.x += dt * g.vel.length() * 0.8;
+      g.mesh.rotation.z += dt * g.vel.length() * 0.5;
+      g.light.visible = Math.floor(g.t * (g.t > GRENADE.fuse - 0.7 ? 14 : 5)) % 2 === 0; // blinks faster near the end
+      if (g.t >= GRENADE.fuse && g.mine) {
+        this.scene.remove(g.mesh);
+        this.nades.splice(i, 1);
+        this.explode(g.pos, true, 'grenade');
+        this.net.send({ t: 'boom', n: g.n, p: g.pos.toArray().map((x) => +x.toFixed(2)) });
+      } else if (g.t > GRENADE.fuse + 2) {
+        // someone else's grenade whose explosion message never arrived
+        this.scene.remove(g.mesh);
+        this.nades.splice(i, 1);
+      }
+    }
+  }
+
+  explode(pos, mine, kind = 'rocket') {
     sfx.explosion(pos.distanceTo(this.camera.position));
     const ball = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0.9 }));
     ball.position.copy(pos);
@@ -867,7 +951,7 @@ export class Game {
     const d = pos.distanceTo(this.camera.position);
     this.shake = Math.max(this.shake, Math.max(0, 1 - d / 20));
     if (!mine) return;
-    const w = WEAPONS.rocket;
+    const w = kind === 'grenade' ? GRENADE : WEAPONS.rocket;
     const targets = [...this.players.values()].filter((p) => !p.dead && this.isEnemy(p)).map((p) => ({ id: p.id, c: p.pos.clone().add(new THREE.Vector3(0, 0.9, 0)) }));
     if (this.alive) targets.push({ id: this.myId, c: this.player.pos.clone().add(new THREE.Vector3(0, 0.9, 0)), self: true });
     for (const t of targets) {
@@ -882,14 +966,14 @@ export class Game {
       }
       let dmg = Math.max(10, w.dmg * (1 - dist / w.splash));
       if (t.self) {
-        dmg *= 0.35;
+        dmg *= kind === 'grenade' ? 0.5 : 0.35;
         const push = len > 0.01 ? dir.clone().normalize() : new THREE.Vector3(0, 1, 0);
         this.player.vel.addScaledVector(push, 16 * (1 - dist / w.splash)).y += 5;
         this.player.onGround = false;
       } else {
         this.hitmarker(false);
       }
-      this.net.send({ t: 'hit', target: t.id, dmg: Math.round(dmg), head: false, w: 'rocket' });
+      this.net.send({ t: 'hit', target: t.id, dmg: Math.round(dmg), head: false, w: kind });
     }
   }
 
@@ -1121,6 +1205,7 @@ export class Game {
     }
 
     this.updateRockets(dt);
+    this.updateGrenades(dt);
     this.updateEffects(dt);
     this.updateViewmodel(dt, now);
 
@@ -1181,6 +1266,8 @@ export class Game {
       fill.style.width = fw;
       fill.style.background = hp > 50 ? 'linear-gradient(180deg,#5fe06a,#2fb53e)' : hp > 25 ? 'linear-gradient(180deg,#ffd23f,#e0a800)' : 'linear-gradient(180deg,#ff6b5e,#d33a2e)';
     }
+    this.set('dashLabel', `DASH [${keyLabel(settings.keys.dash)}]`);
+    this.set('nades', `<span class="lbl2">[${keyLabel(settings.keys.grenade)}]</span>` + '<i></i>'.repeat(this.grenades) + '<i class="used"></i>'.repeat(GRENADE.count - this.grenades), 'innerHTML');
     const dash = 1 - this.player.dashCd / PLAYER.dashCooldown;
     $('dashFill').style.width = Math.round(dash * 100) + '%';
     $('dashFill').style.background = dash >= 1 ? '#4fc3f7' : '#2a6f91';
