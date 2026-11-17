@@ -3,6 +3,7 @@
 // with a send(msg) method.
 import { MAPS, generateMap, mapHash } from './shared/maps.js';
 import { WEAPONS, maxHitDamage } from './shared/weapons.js';
+import { BUILD, VERSION_MISMATCH } from './version.js';
 
 const TICK_MS = 50; // 20 updates per second
 const RESPAWN_DELAY = 3000;
@@ -111,6 +112,10 @@ export class RoomHost {
   }
 
   join(conn, msg) {
+    if (msg.v !== BUILD) {
+      this.send(conn, { t: 'error', msg: VERSION_MISMATCH });
+      return false;
+    }
     if (this.players.size >= this.settings.maxPlayers) {
       this.send(conn, { t: 'error', msg: 'That room is full.' });
       return false;
@@ -124,7 +129,7 @@ export class RoomHost {
     this.players.set(p.id, p);
     conn.player = p;
     if (!this.hostId) this.hostId = p.id;
-    this.send(conn, { t: 'joined', you: p.id, ...this.matchInfo() });
+    this.send(conn, { t: 'joined', you: p.id, v: BUILD, ...this.matchInfo() });
     this.broadcast({ t: 'pj', p: publicPlayer(p) }, p.id);
     return true;
   }

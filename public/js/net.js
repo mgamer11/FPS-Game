@@ -4,6 +4,7 @@
 // the room code is the host's address there, so codes can never clash.
 import { Peer } from 'peerjs';
 import { RoomHost, makeCode } from './roomhost.js';
+import { BUILD, VERSION_MISMATCH } from './version.js';
 
 const ID_PREFIX = 'blockblitz-v1-';
 const JOIN_TIMEOUT = 15000;
@@ -70,7 +71,7 @@ export class Net {
           this.local = { send: (m) => queueMicrotask(() => this.emit(m)) };
           peer.on('connection', (c) => this.acceptPeer(c));
           const off = this.on((m) => { if (m.t === 'joined') { off(); resolve(m); } });
-          this.host.handle(this.local, { t: 'join', name: profile.name, color: profile.color });
+          this.host.handle(this.local, { t: 'join', v: BUILD, ...profile });
         });
         peer.on('error', (err) => {
           if (err.type === 'unavailable-id' && tries++ < 5) {
@@ -119,12 +120,14 @@ export class Net {
       peer.on('open', () => {
         const c = peer.connect(ID_PREFIX + code, { reliable: true, serialization: 'json' });
         this.conn = c;
-        c.on('open', () => c.send({ t: 'join', name: profile.name, color: profile.color }));
+        c.on('open', () => c.send({ t: 'join', v: BUILD, ...profile }));
         c.on('data', (m) => {
           this.lastMsg = Date.now();
           if (!done) {
             if (m.t === 'error') { clearTimeout(timer); return fail(m.msg); }
             if (m.t === 'joined') {
+              // a host on an older copy of the game doesn't check versions itself
+              if (m.v !== BUILD) { clearTimeout(timer); return fail(VERSION_MISMATCH); }
               done = true;
               clearTimeout(timer);
               this.startWatchdog();

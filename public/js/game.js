@@ -581,7 +581,7 @@ export class Game {
     const color = (id) => (id === this.myId ? this.me.color : this.players.get(id)?.color || '#fff');
     const wname = m.w === 'lava' ? 'Lava' : WEAPONS[m.w]?.name || m.w;
     const mine = m.k === this.myId || m.v === this.myId;
-    if (m.k === m.v) this.feed(`<b style="color:${esc(color(m.v))}">${esc(name(m.v))}</b><span class="wpn">[${esc(wname)}]</span>himself`, mine);
+    if (m.k === m.v) this.feed(`<b style="color:${esc(color(m.v))}">${esc(name(m.v))}</b><span class="wpn">[${esc(wname)}]</span>themselves`, mine);
     else this.feed(`<b style="color:${esc(color(m.k))}">${esc(name(m.k))}</b><span class="wpn">[${esc(wname)}${m.head ? ' ✦' : ''}]</span><b style="color:${esc(color(m.v))}">${esc(name(m.v))}</b>`, mine);
 
     if (m.v === this.myId) {
@@ -1228,6 +1228,7 @@ export class Game {
     this.net.send({ t: 'leave' });
     this.unbindInput();
     this.unsub();
+    this.unsubSettings();
     removeEventListener('resize', this.onResize);
     if (document.pointerLockElement) document.exitPointerLock();
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});

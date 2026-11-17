@@ -7,6 +7,10 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+# only the newest push needs to be published
+concurrency:
+  group: publish-site
+  cancel-in-progress: true
 jobs:
   deploy:
     runs-on: ubuntu-latest

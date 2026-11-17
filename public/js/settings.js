@@ -14,7 +14,10 @@ try {
 } catch { /* ignore broken storage */ }
 
 const listeners = [];
-export function onSettingsChange(fn) { listeners.push(fn); }
+export function onSettingsChange(fn) {
+  listeners.push(fn);
+  return () => { const i = listeners.indexOf(fn); if (i >= 0) listeners.splice(i, 1); };
+}
 
 export function saveSettings() {
   try { localStorage.setItem(KEY, JSON.stringify(settings)); } catch { /* ignore */ }
