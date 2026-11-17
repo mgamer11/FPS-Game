@@ -241,10 +241,11 @@ export class RoomHost {
     if (target.dead || this.state !== 'playing') return;
     if (target !== attacker && !this.isEnemy(attacker, target)) return; // no friendly fire
     if (Date.now() < target.prot && target !== attacker) return;
+    const before = target.hp;
     target.hp = Math.max(0, target.hp - dmg);
     target.lastDmg = Date.now();
     this.bots.onDamaged(target, attacker);
-    this.broadcast({ t: 'dmg', id: target.id, hp: Math.round(target.hp), by: attacker.id, w: weapon });
+    this.broadcast({ t: 'dmg', id: target.id, hp: Math.round(target.hp), by: attacker.id, w: weapon, d: Math.round(before - target.hp), head: !!head });
     if (target.hp <= 0) {
       target.dead = true;
       target.deathAt = Date.now();

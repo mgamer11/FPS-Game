@@ -111,6 +111,11 @@ export class Game {
     this.chatLines = [];
     this.fpsAcc = { t: 0, n: 0 };
     this.minimap = new Minimap($('minimap'));
+    this.dmgNums = [];
+    this.streaks = new Map(); // kills in a row, per player
+    this.multi = { n: 0, at: 0 }; // my quick kills in a row
+    this.stepDist = 0;
+    this.nextBeat = 0;
 
     this.bindInput();
     this.unsub = net.on((m) => this.onMessage(m));
@@ -160,6 +165,8 @@ export class Game {
     this.pickups.clear();
     for (const pk of data.pickups) this.addPickup(pk);
 
+    this.streaks.clear();
+    this.multi.n = 0;
     this.alive = false;
     this.hp = 100;
     this.deathAt = -1e9;
@@ -620,8 +627,60 @@ export class Game {
       }
     } else {
       const p = this.players.get(m.id);
-      if (p) p.hp = m.hp;
+      if (!p) return;
+      p.hp = m.hp;
+      // a number pops out of anyone I damage
+      if (m.by === this.myId && m.d > 0) this.damageNumber(p.pos.clone().add(new THREE.Vector3(0, p.flags & 4 ? 1.5 : 2.1, 0)), m.d, m.head);
     }
+  }
+
+  damageNumber(pos, amount, head) {
+    const el = document.createElement('div');
+    el.className = 'dn' + (head ? ' head' : '');
+    el.textContent = String(amount);
+    $('dmgNums').appendChild(el);
+    this.dmgNums.push({ el, pos, t: 0, dx: (Math.random() - 0.5) * 40 });
+    if (this.dmgNums.length > 14) this.dmgNums.shift().el.remove();
+  }
+
+  updateDamageNumbers(dt) {
+    for (let i = this.dmgNums.length - 1; i >= 0; i--) {
+      const n = this.dmgNums[i];
+      n.t += dt;
+      if (n.t > 0.9) { n.el.remove(); this.dmgNums.splice(i, 1); continue; }
+      const v = tmpV.copy(n.pos).project(this.camera);
+      if (v.z > 1) { n.el.style.opacity = '0'; continue; } // behind the camera
+      const x = (v.x * 0.5 + 0.5) * innerWidth + n.dx * n.t, y = (-v.y * 0.5 + 0.5) * innerHeight - n.t * 60;
+      n.el.style.transform = `translate(${x.toFixed(0)}px, ${y.toFixed(0)}px) translate(-50%, -50%) scale(${(1.25 - n.t * 0.4).toFixed(2)})`;
+      n.el.style.opacity = String(Math.min(1, (0.9 - n.t) * 3));
+    }
+  }
+
+  // Kills without dying ("killing spree") and kills in quick succession ("double kill").
+  trackStreaks(m, name, color) {
+    this.streaks.set(m.v, 0);
+    if (m.k === m.v) return;
+    const s = (this.streaks.get(m.k) || 0) + 1;
+    this.streaks.set(m.k, s);
+    const title = { 3: 'KILLING SPREE', 5: 'RAMPAGE', 7: 'UNSTOPPABLE', 10: 'LEGENDARY' }[s];
+    if (m.k !== this.myId) {
+      if (title) this.feed(`<b style="color:${esc(color(m.k))}">${esc(name(m.k))}</b> is on a ${title.toLowerCase()}!`);
+      return;
+    }
+    const now = performance.now();
+    this.multi.n = now - this.multi.at < 4000 ? this.multi.n + 1 : 1;
+    this.multi.at = now;
+    const quick = { 2: 'DOUBLE KILL', 3: 'TRIPLE KILL' }[this.multi.n] || (this.multi.n > 3 ? 'MULTI KILL' : null);
+    if (title || quick) this.banner(title || quick, title && quick ? quick : `${s} in a row`, title ? 2 : 1);
+  }
+
+  banner(big, small, level) {
+    const el = $('streak');
+    el.innerHTML = `<div class="big">${esc(big)}</div><div class="small">${esc(small)}</div>`;
+    el.classList.remove('show');
+    void el.offsetWidth; // restart the animation
+    el.classList.add('show');
+    sfx.streak(level);
   }
 
   onKill(m) {
@@ -629,6 +688,7 @@ export class Game {
     const color = (id) => (id === this.myId ? this.me.color : this.players.get(id)?.color || '#fff');
     const wname = weaponName(m.w);
     const mine = m.k === this.myId || m.v === this.myId;
+    this.trackStreaks(m, name, color);
     if (m.k === m.v) this.feed(`<b style="color:${esc(color(m.v))}">${esc(name(m.v))}</b><span class="wpn">[${esc(wname)}]</span>themselves`, mine);
     else this.feed(`<b style="color:${esc(color(m.k))}">${esc(name(m.k))}</b><span class="wpn">[${esc(wname)}${m.head ? ' ✦' : ''}]</span><b style="color:${esc(color(m.v))}">${esc(name(m.v))}</b>`, mine);
 
@@ -1220,6 +1280,8 @@ export class Game {
 
     this.updateRockets(dt);
     this.updateGrenades(dt);
+    this.updateDamageNumbers(dt);
+    this.updateAmbientSounds(dt, now);
     this.updateEffects(dt);
     this.updateViewmodel(dt, now);
 
@@ -1229,6 +1291,28 @@ export class Game {
       this.net.send({ t: 's', p: [+pl.pos.x.toFixed(2), +pl.pos.y.toFixed(2), +pl.pos.z.toFixed(2)], y: +pl.yaw.toFixed(3), x: +pl.pitch.toFixed(3), w: this.weapon.id, f });
     }
     this.updateHud(now);
+  }
+
+  // Footsteps (yours and nearby players') and a heartbeat when you are badly hurt.
+  updateAmbientSounds(dt, now) {
+    const pl = this.player;
+    if (this.alive) {
+      const speed = Math.hypot(pl.vel.x, pl.vel.z);
+      if (pl.onGround && speed > 2 && !pl.crouching) {
+        this.stepDist += speed * dt;
+        if (this.stepDist > 2.3) { this.stepDist = 0; sfx.step(0.07); }
+      }
+      const low = this.hp > 0 && this.hp <= 30;
+      $('lowHp').classList.toggle('on', low);
+      if (low && now >= this.nextBeat) { this.nextBeat = now + 550 + this.hp * 14; sfx.heartbeat(); }
+    } else $('lowHp').classList.remove('on');
+    for (const p of this.players.values()) {
+      if (p.dead || p.flags & 4 || p.speed < 2) continue; // crouch-walking is silent
+      const d = p.pos.distanceTo(this.camera.position);
+      if (d > 18) continue;
+      p.stepDist = (p.stepDist || 0) + p.speed * dt;
+      if (p.stepDist > 2.3) { p.stepDist = 0; sfx.step(0.16 * (1 - d / 18)); }
+    }
   }
 
   updateCamera(dt) {
@@ -1387,6 +1471,9 @@ export class Game {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     if (this.worldGroup) this.worldGroup.traverse((o) => o.geometry && o.geometry.dispose());
     for (const id of ['endScreen', 'deathScreen', 'scoreboard', 'scopeOverlay', 'chatInput', 'clickToPlay']) $(id).classList.add('hidden');
+    $('dmgNums').innerHTML = '';
+    $('lowHp').classList.remove('on');
+    $('streak').classList.remove('show');
     $('killfeed').innerHTML = '';
     $('chatLog').innerHTML = '';
     this.onExit(reason);

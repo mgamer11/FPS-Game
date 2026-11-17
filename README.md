@@ -52,6 +52,7 @@ These are the defaults. You can change any of them in **Settings → Keybinds** 
 - **10 maps:** Meadow Village, Dune Outpost, Frostbite, Downtown, Timber Woods, Red Canyon, Lost Temple, Harbor, Magma Core, Army Base. Choose **Random** when creating a room to get a new random map every match.
 - **10 weapons:** Pistol (you always have it), plus Assault Rifle, SMG, Shotgun, Sniper, LMG, Revolver, Marksman Rifle, Burst Rifle and Rocket Launcher lying on the ground. Walk over a gun to add it to your 10-slot hotbar (walking over one you already have refills its ammo). Picked-up guns come back after 18 seconds.
 - Everyone has 100 HP. Only the Sniper, a headshot, or a Shotgun blast at point-blank range (3 blocks or closer) can take out a full-health player in one shot.
+- **Combat feedback:** damage numbers pop out of whoever you hit (gold for headshots), kill streaks get a callout (Double Kill, Killing Spree, Rampage...), the screen edges pulse and you hear a heartbeat at 30 health or less, and you can hear footsteps nearby. Crouch-walking is silent.
 - **Minimap:** shows the map, you, your teammates, guns (yellow) and health packs. Enemies appear on it for a moment when they shoot. It can be turned off in Settings.
 - **Crouch and slide:** crouching makes you a smaller target and steadies your aim but slows you down; sliding is a quick low burst of speed.
 - **Grenades:** two per life. They bounce off blocks and explode after about two seconds. Like rockets, one grenade can't take out a full-health player.

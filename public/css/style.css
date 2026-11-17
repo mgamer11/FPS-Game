@@ -173,3 +173,16 @@ table.sb tr.me td { color: #ffd23f; }
 #teamScore .ts { padding: 1px 12px; border-radius: 8px; opacity: .8; border: 2px solid transparent; }
 #teamScore .ts.mine { opacity: 1; border-color: #fff; }
 .team-head { font-family: 'Lilita One', sans-serif; font-weight: 400; margin: 10px 0 4px; font-size: 20px; text-align: left; }
+
+/* combat feedback */
+#dmgNums { position: absolute; inset: 0; overflow: hidden; }
+.dn { position: absolute; left: 0; top: 0; font-family: 'Lilita One', sans-serif; font-size: calc(26px * var(--hud, 1)); color: #fff; text-shadow: 0 2px 0 #000, 0 0 6px rgba(0,0,0,.6); will-change: transform; }
+.dn.head { color: #ffd23f; font-size: calc(32px * var(--hud, 1)); }
+#lowHp { position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, transparent 45%, rgba(200, 0, 0, .55) 100%); }
+#lowHp.on { animation: lowhp 1s ease-in-out infinite; }
+@keyframes lowhp { 0%, 100% { opacity: .35; } 50% { opacity: .9; } }
+#streak { position: absolute; left: 50%; top: 22%; transform: translateX(-50%) scale(var(--hud, 1)); text-align: center; opacity: 0; white-space: nowrap; }
+#streak .big { font-family: 'Lilita One', sans-serif; font-size: 46px; color: #ffd23f; text-shadow: 0 4px 0 #7a4b00, 0 0 18px rgba(255, 180, 0, .6); letter-spacing: 2px; }
+#streak .small { font-size: 17px; letter-spacing: 2px; text-transform: uppercase; }
+#streak.show { animation: streak 2.2s ease-out forwards; }
+@keyframes streak { 0% { opacity: 0; transform: translateX(-50%) scale(calc(var(--hud, 1) * 1.6)); } 12% { opacity: 1; transform: translateX(-50%) scale(var(--hud, 1)); } 75% { opacity: 1; } 100% { opacity: 0; } }
