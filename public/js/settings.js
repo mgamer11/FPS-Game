@@ -43,20 +43,22 @@ export function bindSettingsUI() {
     });
   }
 
-  // General / Keybinds tabs
-  const tabs = document.querySelectorAll('[data-stab]');
-  tabs.forEach((t) => (t.onclick = () => {
-    tabs.forEach((x) => x.classList.toggle('active', x === t));
-    document.getElementById('generalPane').classList.toggle('hidden', t.dataset.stab !== 'generalPane');
-    document.getElementById('keysPane').classList.toggle('hidden', t.dataset.stab !== 'keysPane');
-    stopListening();
-  }));
+  // General / Keybinds / Room tabs
+  document.querySelectorAll('[data-stab]').forEach((t) => (t.onclick = () => showSettingsTab(t.dataset.stab)));
   renderKeybinds();
   document.getElementById('resetKeys').onclick = () => {
     settings.keys = { ...DEFAULT_KEYS };
     saveSettings();
     renderKeybinds('All controls reset to default.');
   };
+}
+
+export function showSettingsTab(id) {
+  document.querySelectorAll('[data-stab]').forEach((t) => {
+    t.classList.toggle('active', t.dataset.stab === id);
+    document.getElementById(t.dataset.stab).classList.toggle('hidden', t.dataset.stab !== id);
+  });
+  stopListening();
 }
 
 // ---------------------------------------------------------------- keybinds tab

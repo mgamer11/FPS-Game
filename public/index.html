@@ -90,6 +90,7 @@
       <div class="tabs settings-tabs">
         <button class="tab active" data-stab="generalPane">General</button>
         <button class="tab" data-stab="keysPane">Keybinds</button>
+        <button class="tab hidden" data-stab="roomPane" id="roomTabBtn">Room</button>
       </div>
       <div id="generalPane" class="settings-grid">
         <label>Mouse Sensitivity <span id="sensVal"></span></label>
@@ -124,6 +125,7 @@
         <div id="keybindList" class="kb-list"></div>
         <div class="kb-footer"><span id="keybindMsg" class="desc"></span><button id="resetKeys" class="btn small ghost">Reset to default</button></div>
       </div>
+      <div id="roomPane" class="hidden"></div>
       <div class="row-btns">
         <button id="resumeBtn" class="btn">RESUME</button>
         <button id="closeSettingsBtn" class="btn hidden">DONE</button>

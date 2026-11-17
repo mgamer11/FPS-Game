@@ -6,7 +6,7 @@ import { HATS } from './shared/hats.js';
 import { Net } from './net.js';
 import { Game } from './game.js';
 import { buildCharacter, setCharacterColor, setCharacterHat, poseCharacter } from './models.js';
-import { settings, bindSettingsUI, onSettingsChange } from './settings.js';
+import { settings, bindSettingsUI, onSettingsChange, showSettingsTab } from './settings.js';
 import { keyLabel } from './keybinds.js';
 import { unlockAudio, sfx } from './audio.js';
 import { progress, levelInfo } from './progress.js';
@@ -298,6 +298,8 @@ onSettingsChange(() => { applyUiScale(); renderControls(); });
 // ---------------------------------------------------------------- settings
 bindSettingsUI();
 $('homeSettingsBtn').onclick = () => {
+  $('roomTabBtn').classList.add('hidden');
+  showSettingsTab('generalPane');
   $('settingsTitle').textContent = 'Settings';
   $('roomInfo').classList.add('hidden');
   $('resumeBtn').classList.add('hidden');

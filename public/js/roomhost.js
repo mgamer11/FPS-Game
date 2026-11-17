@@ -329,12 +329,52 @@ export class RoomHost {
         this.takePickup(pk, p);
         break;
       }
+      case 'admin':
+        if (p.id === this.hostId) this.admin(msg);
+        break;
       case 'chat': {
         const text = String(msg.text || '').slice(0, 120).trim();
         if (text) this.broadcast({ t: 'chat', id: p.id, text });
         break;
       }
     }
+  }
+
+  // Things only the person who created the room may do (from the pause menu's Room tab).
+  admin(msg) {
+    const s = this.settings;
+    const humans = [...this.players.values()].filter((q) => !q.bot);
+    switch (msg.a) {
+      case 'bots':
+        s.bots = Math.min(MAX_BOTS, Math.max(0, Math.floor(Number(msg.n)) || 0));
+        // make room for them if the room was created smaller
+        s.maxPlayers = Math.max(s.maxPlayers, Math.min(16, humans.length + s.bots));
+        this.bots.sync();
+        break;
+      case 'skill':
+        if (msg.v in BOT_SKILLS) s.botSkill = msg.v;
+        break;
+      case 'restart': {
+        if (msg.mode in MODES) s.mode = msg.mode;
+        if (ALLOWED_TIMES.includes(Number(msg.time))) s.time = Number(msg.time);
+        if (msg.map === 'random') s.map = 'random';
+        else if (Number(msg.map) >= 0 && Number(msg.map) < MAPS.length) s.map = Math.floor(Number(msg.map));
+        this.startMatch();
+        this.broadcast({ t: 'match', ...this.matchInfo() });
+        return;
+      }
+      case 'kick': {
+        const target = this.players.get(Number(msg.id));
+        if (!target || target.bot || target.id === this.hostId) return;
+        this.send(target.conn, { t: 'kicked' });
+        const conn = target.conn;
+        this.leave(conn);
+        if (conn.close) conn.close();
+        break;
+      }
+      default: return;
+    }
+    this.broadcast({ t: 'settings', settings: s });
   }
 
   // Snapshots, health regen, pickup respawns, match timer.

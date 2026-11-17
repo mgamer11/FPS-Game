@@ -107,7 +107,7 @@ export class Net {
 
   acceptPeer(c) {
     const host = this.host;
-    const conn = { send: (m) => c.open && c.send(m) };
+    const conn = { send: (m) => c.open && c.send(m), close: () => setTimeout(() => c.close(), 300) };
     c.on('data', (m) => host.handle(conn, m));
     c.on('close', () => host.leave(conn));
     c.on('error', () => host.leave(conn));

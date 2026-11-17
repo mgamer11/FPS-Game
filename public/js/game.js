@@ -3,11 +3,12 @@ import * as THREE from 'three';
 import { generateMap, mapHash, MAPS, B } from './shared/maps.js';
 import { WEAPONS, HOTBAR_SIZE, MAX_HP, HEAL_AMOUNT, GRENADE, weaponName } from './shared/weapons.js';
 import { MODES, TEAMS } from './shared/modes.js';
+import { BOT_SKILLS, MAX_BOTS } from './bots.js';
 import { rayBox, playerBoxes } from './shared/voxel.js';
 import { buildWorldMeshes } from './worldmesh.js';
 import { buildCharacter, buildGun, buildMedkit, setCharacterWeapon, poseCharacter, makeNameTag, gunIcon } from './models.js';
 import { LocalPlayer, PLAYER } from './player.js';
-import { settings, onSettingsChange } from './settings.js';
+import { settings, onSettingsChange, showSettingsTab } from './settings.js';
 import { keyLabel } from './keybinds.js';
 import { playGun, sfx, setVolume } from './audio.js';
 import { blockColor } from './textures.js';
@@ -455,11 +456,52 @@ export class Game {
     if (copy) copy.onclick = () => {
       navigator.clipboard?.writeText(invite).then(() => (copy.textContent = 'Copied!'), () => {});
     };
+    $('roomTabBtn').classList.toggle('hidden', !this.net.isHost);
+    if (!this.net.isHost && !$('roomPane').classList.contains('hidden')) showSettingsTab('generalPane');
+    this.renderRoomPane();
     $('resumeBtn').classList.remove('hidden');
     $('leaveBtn').classList.remove('hidden');
     $('closeSettingsBtn').classList.add('hidden');
     $('settingsModal').classList.remove('hidden');
     $('clickToPlay').classList.add('hidden');
+  }
+
+  // The host's Room tab: bots, next match, and removing players.
+  renderRoomPane() {
+    const pane = $('roomPane');
+    if (!this.net.isHost) { pane.innerHTML = ''; return; }
+    const s = this.roomSettings;
+    const seg = (id, options, current) => `<div class="seg" id="${id}">${options.map(([v, label]) => `<button data-v="${v}" class="${String(v) === String(current) ? 'sel' : ''}">${label}</button>`).join('')}</div>`;
+    const people = [...this.players.values()].filter((p) => !p.bot);
+    const next = this.nextMatch || (this.nextMatch = { map: s.map, mode: s.mode, time: s.time });
+    pane.innerHTML = `
+      <div class="settings-grid">
+        <label>Bots <span>${s.bots}</span></label>
+        <div class="stepper"><button id="hcMinus" ${s.bots <= 0 ? 'disabled' : ''}>−</button><button id="hcPlus" ${s.bots >= MAX_BOTS ? 'disabled' : ''}>+</button></div>
+        <label>Bot difficulty</label>
+        ${seg('hcSkill', Object.entries(BOT_SKILLS).map(([k, v]) => [k, v.label]), s.botSkill)}
+      </div>
+      <h4>Start a new match</h4>
+      <div class="settings-grid">
+        <label>Map</label>
+        <select id="hcMap"><option value="random">🎲 Random</option>${MAPS.map((m, i) => `<option value="${i}">${esc(m.name)}</option>`).join('')}</select>
+        <label>Mode</label>
+        ${seg('hcMode', Object.entries(MODES), next.mode)}
+        <label>Match time</label>
+        ${seg('hcTime', [3, 5, 8, 10, 15].map((t) => [t, t + ' min']), next.time)}
+      </div>
+      <button id="hcRestart" class="btn small ghost">START NEW MATCH NOW</button>
+      ${this.local ? '' : `<h4>Players</h4>${people.length ? people.map((p) => `<div class="kb-row"><span><span class="dot" style="background:${esc(p.color)}"></span>${esc(p.name)}</span><button class="kb-btn" data-kick="${p.id}">Remove</button></div>`).join('') : '<p class="desc">Nobody else has joined yet.</p>'}`}`;
+    const admin = (msg) => this.net.send({ t: 'admin', ...msg });
+    $('hcMap').value = String(next.map);
+    $('hcMap').onchange = () => { next.map = $('hcMap').value === 'random' ? 'random' : Number($('hcMap').value); };
+    $('hcMinus').onclick = () => admin({ a: 'bots', n: s.bots - 1 });
+    $('hcPlus').onclick = () => admin({ a: 'bots', n: s.bots + 1 });
+    pane.querySelectorAll('#hcSkill button').forEach((b) => (b.onclick = () => admin({ a: 'skill', v: b.dataset.v })));
+    pane.querySelectorAll('#hcMode button').forEach((b) => (b.onclick = () => { next.mode = b.dataset.v; this.renderRoomPane(); }));
+    pane.querySelectorAll('#hcTime button').forEach((b) => (b.onclick = () => { next.time = Number(b.dataset.v); this.renderRoomPane(); }));
+    $('hcRestart').onclick = () => { admin({ a: 'restart', ...next }); this.nextMatch = null; this.resume(); };
+    pane.querySelectorAll('[data-kick]').forEach((b) => (b.onclick = () => admin({ a: 'kick', id: Number(b.dataset.kick) })));
   }
 
   resume() {
@@ -506,6 +548,7 @@ export class Game {
       case 'snap': this.onSnap(m.ps); if (m.ts) this.teamScore = m.ts; break;
       case 'pj':
         this.addPlayer(m.p);
+        if (this.menuOpen) this.renderRoomPane();
         this.feed(`<b style="color:${esc(this.colorOf(m.p))}">${esc(m.p.name)}</b> joined`);
         break;
       case 'pl': {
@@ -513,11 +556,19 @@ export class Game {
         if (p) {
           this.scene.remove(p.model);
           this.players.delete(m.id);
+          if (this.menuOpen) this.renderRoomPane();
           this.feed(`<b style="color:${esc(p.color)}">${esc(p.name)}</b> left`);
         }
         break;
       }
       case 'host': this.hostId = m.id; break;
+      case 'settings':
+        this.roomSettings = m.settings;
+        if (this.menuOpen) this.renderRoomPane();
+        break;
+      case 'kicked':
+        this.exit('The host removed you from the room.');
+        break;
       case 'shot': this.onRemoteShot(m); break;
       case 'boom': {
         const grenade = m.n !== undefined && m.n !== null;

@@ -202,3 +202,12 @@ table.sb tr.me td { color: #ffd23f; }
 .hat { padding: 5px 9px; border-radius: 9px; border: 3px solid #b6dcf5; background: #fff; font: inherit; font-size: 12px; font-weight: 800; color: #2b5f86; cursor: pointer; }
 .hat.sel { background: #3b8fcf; border-color: #3b8fcf; color: #fff; }
 .hat.locked { opacity: .55; cursor: not-allowed; background: #e6eef4; }
+
+/* host's Room tab */
+#roomPane h4 { font-family: 'Lilita One', sans-serif; font-weight: 400; color: #1d5a87; font-size: 18px; margin: 16px 0 8px; }
+#roomPane .btn.small { margin-top: 12px; width: 100%; }
+#roomPane .kb-row { margin: 4px 0; }
+#roomPane select { padding: 6px 8px; border-width: 3px; }
+.stepper { display: flex; gap: 6px; }
+.stepper button { width: 44px; height: 34px; border-radius: 10px; border: 3px solid #b6dcf5; background: #fff; font-size: 20px; font-weight: 800; color: #2b5f86; cursor: pointer; }
+.stepper button:disabled { opacity: .4; cursor: not-allowed; }

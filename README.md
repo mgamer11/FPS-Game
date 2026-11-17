@@ -65,6 +65,7 @@ These are the defaults. You can change any of them in **Settings → Keybinds** 
 - The game goes fullscreen when you click into it (so the Windows taskbar and browser bars can't cover the screen), and the HUD and menus resize to fit small or short windows. Both can be adjusted in Settings (Fullscreen While Playing, HUD Size).
 - **Two modes:** Free-for-all, or Team Deathmatch (Red vs Blue, no friendly fire, teams are re-dealt every match and you can always see your teammates' names).
 - **Bots:** computer players (Easy, Normal or Hard) for practice, or to fill up an online room. A bot gives up its place when a real player joins a full room.
+- **Host controls:** whoever created the room gets a **Room** tab in the pause menu (Esc): add or remove bots, change their difficulty, start a new match on any map, mode or length, and remove a player.
 - Room settings: match time (3–15 min), map, and max players (2–16). Room codes are random and can never clash with another open room.
 
 ## For tinkerers
