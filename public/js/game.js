@@ -117,6 +117,8 @@ export class Game {
     this.chatLines = [];
     this.fpsAcc = { t: 0, n: 0 };
     this.minimap = new Minimap($('minimap'));
+    this.ping = 0;
+    this.lastPing = 0;
     this.weather = new Weather(this.scene);
     this.dmgNums = [];
     this.streaks = new Map(); // kills in a row, per player
@@ -394,7 +396,7 @@ export class Game {
     const action = this.actionFor(code);
     if (!action) return;
     if (action === 'shoot') { this.mouseDown = true; this.firedSinceDown = false; }
-    else if (action === 'aim') this.zoomHeld = true;
+    else if (action === 'aim') this.zoomHeld = settings.toggleAim ? !this.zoomHeld : true;
     else if (action === 'reload') this.startReload();
     else if (action === 'grenade') this.throwGrenade();
     else if (action === 'prevWeapon') this.switchSlot(this.lastSlot);
@@ -406,7 +408,7 @@ export class Game {
     this.keys.delete(code);
     const action = this.actionFor(code);
     if (action === 'shoot') this.mouseDown = false;
-    else if (action === 'aim') this.zoomHeld = false;
+    else if (action === 'aim') { if (!settings.toggleAim) this.zoomHeld = false; }
     else if (action === 'scoreboard') $('scoreboard').classList.add('hidden');
   }
 
@@ -565,6 +567,12 @@ export class Game {
       case 'settings':
         this.roomSettings = m.settings;
         if (this.menuOpen) this.renderRoomPane();
+        break;
+      case 'pong':
+        this.ping = Math.round(performance.now() - m.c);
+        break;
+      case 'pings':
+        for (const [id, ms] of m.list) { const p = this.players.get(id); if (p) p.ping = ms; }
         break;
       case 'kicked':
         this.exit('The host removed you from the room.');
@@ -1281,7 +1289,7 @@ export class Game {
     this.renderer.render(this.vmScene, this.vmCamera);
     this.fpsAcc.t += dt; this.fpsAcc.n++;
     if (this.fpsAcc.t > 0.5) {
-      $('fps').textContent = Math.round(this.fpsAcc.n / this.fpsAcc.t) + ' FPS';
+      $('fps').textContent = Math.round(this.fpsAcc.n / this.fpsAcc.t) + ' FPS' + (this.net.isHost ? '' : ` · ${this.ping} ms`);
       this.fpsAcc.t = 0; this.fpsAcc.n = 0;
     }
   }
@@ -1370,6 +1378,10 @@ export class Game {
     this.updateEffects(dt);
     this.updateViewmodel(dt, now);
 
+    if (now - this.lastPing > 2000) {
+      this.lastPing = now;
+      this.net.send({ t: 'ping', c: now, rtt: this.ping });
+    }
     if (now - this.lastSend > SEND_MS && this.alive) {
       this.lastSend = now;
       const f = (pl.sprinting ? 1 : 0) | (this.zoomed ? 2 : 0) | (pl.crouching ? 4 : 0);
@@ -1507,14 +1519,16 @@ export class Game {
   }
 
   allScores() {
-    const list = [...this.players.values()].map((p) => ({ id: p.id, name: p.name, color: p.color, team: p.team, bot: p.bot, lvl: p.lvl, kills: p.kills, deaths: p.deaths }));
-    list.push({ id: this.myId, name: this.me.name, color: this.me.color, team: this.myTeam, lvl: levelInfo().level, kills: this.myStats.kills, deaths: this.myStats.deaths });
+    const list = [...this.players.values()].map((p) => ({ id: p.id, name: p.name, color: p.color, team: p.team, bot: p.bot, lvl: p.lvl, ping: p.ping, kills: p.kills, deaths: p.deaths }));
+    list.push({ id: this.myId, name: this.me.name, color: this.me.color, team: this.myTeam, lvl: levelInfo().level, ping: this.ping, kills: this.myStats.kills, deaths: this.myStats.deaths });
     return list.sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
   }
 
   table(list) {
-    return `<table class="sb"><tr><th>#</th><th>PLAYER</th><th>LEVEL</th><th>KILLS</th><th>DEATHS</th></tr>${list
-      .map((p, i) => `<tr class="${p.id === this.myId ? 'me' : ''}"><td>${i + 1}</td><td><span class="dot" style="background:${esc(p.color)}"></span>${esc(p.name)}${p.id === this.hostId ? ' 👑' : ''}</td><td>${p.bot ? 'bot' : p.lvl || 1}</td><td>${p.kills}</td><td>${p.deaths}</td></tr>`)
+    // ping: how long a message takes to reach the host and come back (the host itself has none)
+    const ping = (p) => (p.bot || p.ping === undefined ? '–' : p.id === this.hostId ? 'host' : p.ping + ' ms');
+    return `<table class="sb"><tr><th>#</th><th>PLAYER</th><th>LEVEL</th><th>KILLS</th><th>DEATHS</th><th>PING</th></tr>${list
+      .map((p, i) => `<tr class="${p.id === this.myId ? 'me' : ''}"><td>${i + 1}</td><td><span class="dot" style="background:${esc(p.color)}"></span>${esc(p.name)}${p.id === this.hostId ? ' 👑' : ''}</td><td>${p.bot ? 'bot' : p.lvl || 1}</td><td>${p.kills}</td><td>${p.deaths}</td><td>${ping(p)}</td></tr>`)
       .join('')}</table>`;
   }
 

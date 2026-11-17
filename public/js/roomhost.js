@@ -34,7 +34,7 @@ function cleanColor(c) {
 }
 
 function publicPlayer(p) {
-  return { id: p.id, name: p.name, color: p.color, kills: p.kills, deaths: p.deaths, hp: p.hp, dead: p.dead, pos: p.pos, bot: !!p.bot, team: p.team, lvl: p.lvl, hat: p.hat };
+  return { id: p.id, name: p.name, color: p.color, kills: p.kills, deaths: p.deaths, hp: p.hp, dead: p.dead, pos: p.pos, bot: !!p.bot, team: p.team, lvl: p.lvl, hat: p.hat, ping: p.bot ? undefined : p.ping ?? 0 };
 }
 
 // A timer that keeps ticking even when the browser tab is in the background
@@ -332,6 +332,10 @@ export class RoomHost {
       case 'admin':
         if (p.id === this.hostId) this.admin(msg);
         break;
+      case 'ping': // the player times the round trip and tells us the last result
+        if (Number.isFinite(Number(msg.rtt))) p.ping = Math.max(0, Math.min(999, Math.round(Number(msg.rtt))));
+        this.send(conn, { t: 'pong', c: msg.c });
+        break;
       case 'chat': {
         const text = String(msg.text || '').slice(0, 120).trim();
         if (text) this.broadcast({ t: 'chat', id: p.id, text });
@@ -408,5 +412,10 @@ export class RoomHost {
       ps.push([p.id, +p.pos[0].toFixed(2), +p.pos[1].toFixed(2), +p.pos[2].toFixed(2), +p.yaw.toFixed(3), +p.pitch.toFixed(3), p.w, Math.ceil(p.hp), p.dead ? 1 : 0, p.flags, p.kills, p.deaths]);
     }
     this.broadcast({ t: 'snap', ps, ts: this.teamScore });
+    // everyone's connection quality, every couple of seconds
+    if (now - (this.lastPings || 0) > 2000) {
+      this.lastPings = now;
+      this.broadcast({ t: 'pings', list: [...this.players.values()].filter((p) => !p.bot).map((p) => [p.id, p.ping ?? 0]) });
+    }
   }
 }

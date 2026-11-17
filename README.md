@@ -1,7 +1,7 @@
 # Block Blitz
 
 A blocky, multiplayer first-person shooter that runs in the web browser.
-Free-for-all deathmatch: create a room, share the 5-character code, and the player with the most kills when the timer runs out wins.
+Create a room, share the 5-character code, and play Free-for-all or Team Deathmatch against friends, bots, or both. Most kills when the timer runs out wins.
 
 **Nothing to install.** The person who creates a room hosts it right in their browser, and everyone else connects to them directly.
 
@@ -66,6 +66,7 @@ These are the defaults. You can change any of them in **Settings → Keybinds** 
 - **Two modes:** Free-for-all, or Team Deathmatch (Red vs Blue, no friendly fire, teams are re-dealt every match and you can always see your teammates' names).
 - **Bots:** computer players (Easy, Normal or Hard) for practice, or to fill up an online room. A bot gives up its place when a real player joins a full room.
 - **Host controls:** whoever created the room gets a **Room** tab in the pause menu (Esc): add or remove bots, change their difficulty, start a new match on any map, mode or length, and remove a player.
+- **Small extras:** the scoreboard shows everyone's ping, Settings has a Toggle Aim option (click once to stay zoomed), and if someone's copy of the game is out of date they're told to refresh instead of getting strange errors.
 - Room settings: match time (3–15 min), map, and max players (2–16). Room codes are random and can never clash with another open room.
 
 ## For tinkerers
