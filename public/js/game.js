@@ -12,6 +12,10 @@ import { keyLabel } from './keybinds.js';
 import { playGun, sfx, setVolume } from './audio.js';
 import { blockColor } from './textures.js';
 import { Minimap } from './minimap.js';
+import { Weather } from './weather.js';
+
+// which weather each map has (by map number)
+const MAP_WEATHER = ['pollen', 'dust', 'snow', 'rain', 'leaves', 'dust', 'pollen', null, 'embers', null];
 
 const $ = (id) => document.getElementById(id);
 const RESPAWN_MS = 3000;
@@ -111,6 +115,7 @@ export class Game {
     this.chatLines = [];
     this.fpsAcc = { t: 0, n: 0 };
     this.minimap = new Minimap($('minimap'));
+    this.weather = new Weather(this.scene);
     this.dmgNums = [];
     this.streaks = new Map(); // kills in a row, per player
     this.multi = { n: 0, at: 0 }; // my quick kills in a row
@@ -193,6 +198,7 @@ export class Game {
     this.worldGroup = buildWorldMeshes(this.world);
     this.scene.add(this.worldGroup);
     this.minimap.setMap(this.map);
+    this.applyWeather();
     const def = this.map.def;
     this.scene.background = skyTexture(def.sky[0], def.sky[1]);
     this.scene.fog = new THREE.Fog(def.fog, 45, 150);
@@ -261,8 +267,17 @@ export class Game {
     this.pickups.set(pk.id, { ...pk, mesh: g, spin });
   }
 
+  applyWeather() {
+    const type = settings.weatherOn ? MAP_WEATHER[this.map.index] : null;
+    if (type === this.weatherType && this.weatherMap === this.map) return;
+    this.weatherType = type;
+    this.weatherMap = this.map;
+    this.weather.set(type, this.world);
+  }
+
   applySettings() {
     setVolume(settings.vol);
+    if (this.map) this.applyWeather();
     this.renderer.setPixelRatio(Math.min(2, devicePixelRatio) * settings.qual);
     this.resize();
     document.getElementById('crosshair').style.setProperty('--c', settings.xhairColor);
@@ -1281,6 +1296,7 @@ export class Game {
     this.updateRockets(dt);
     this.updateGrenades(dt);
     this.updateDamageNumbers(dt);
+    this.weather.update(dt, this.camera.position);
     this.updateAmbientSounds(dt, now);
     this.updateEffects(dt);
     this.updateViewmodel(dt, now);
@@ -1470,6 +1486,7 @@ export class Game {
     if (document.pointerLockElement) document.exitPointerLock();
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     if (this.worldGroup) this.worldGroup.traverse((o) => o.geometry && o.geometry.dispose());
+    this.weather.clear();
     for (const id of ['endScreen', 'deathScreen', 'scoreboard', 'scopeOverlay', 'chatInput', 'clickToPlay']) $(id).classList.add('hidden');
     $('dmgNums').innerHTML = '';
     $('lowHp').classList.remove('on');
